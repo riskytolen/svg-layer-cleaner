@@ -1,0 +1,13 @@
+export { parseSvg } from "./parseSvg";
+export { validateSvgFile, validateSvgDocument } from "./validateSvg";
+export { assignElementIds, resetIdCounter } from "./assignElementIds";
+export { buildLayerTree } from "./buildLayerTree";
+export { getElementName } from "./getElementName";
+export { getElementFill, getElementStroke, getElementOpacity, getElementDisplay, getElementVisibility, getElementColorInfo } from "./getElementColors";
+export { getElementAttributes } from "./getElementAttributes";
+export { serializeSvg } from "./serializeSvg";
+export { getSvgDocumentInfo } from "./getDocumentInfo";
+export { deleteElementByLayerId, deleteElementsByLayerIds, collectChildIds } from "./deleteSvgElements";
+export type { DeleteResult } from "./deleteSvgElements";
+export { findElementsBySameFillColor, findElementsBySameStrokeColor, findElementsBySameFillAndStrokeColor, findElementsByColor } from "./selectSameColor";
+export type { SelectByColorOptions } from "./selectSameColor";
