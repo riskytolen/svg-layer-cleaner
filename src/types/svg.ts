@@ -145,6 +145,10 @@ export type CleanSvgResult = {
 
 export type ExportFormat = "svg" | "png" | "jpg" | "eps";
 
+export type EpsExportMode = "clean" | "strict-size" | "hybrid";
+
+export type BackgroundMode = "white" | "transparent";
+
 export type ExportSettings = {
   format: ExportFormat;
   scale: 1 | 2 | 4;
@@ -155,6 +159,7 @@ export type ExportSettings = {
   jpgBackgroundColor: string;
   removeEditorData: boolean;
   keepLayerIds: boolean;
+  epsExportMode: EpsExportMode;
 };
 
 export const defaultExportSettings: ExportSettings = {
@@ -167,6 +172,7 @@ export const defaultExportSettings: ExportSettings = {
   jpgBackgroundColor: "#FFFFFF",
   removeEditorData: true,
   keepLayerIds: false,
+  epsExportMode: "hybrid",
 };
 
 export type SvgLayerStore = {
@@ -187,6 +193,7 @@ export type SvgLayerStore = {
   resizeOptions: SvgResizeOptions;
   resizeResult: SvgResizeResult | null;
   autoResizeOnUpload: boolean;
+  backgroundMode: BackgroundMode;
   zoom: number;
   panX: number;
   panY: number;
@@ -220,4 +227,5 @@ export type SvgLayerStore = {
   resetPreviewViewport: (containerWidth: number, containerHeight: number) => void;
   setExportSettings: (settings: Partial<ExportSettings>) => void;
   exportCurrentSvg: (format?: ExportFormat) => Promise<void>;
+  setBackgroundMode: (mode: BackgroundMode) => void;
 };

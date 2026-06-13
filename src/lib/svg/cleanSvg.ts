@@ -77,6 +77,9 @@ function isEmptyGroup(element: Element): boolean {
   // Never remove artwork transform group
   if (element.getAttribute("data-system-layer") === "artwork-transform") return false;
 
+  // Never remove white background
+  if (element.getAttribute("data-system-layer") === "white-background") return false;
+
   for (let i = 0; i < element.children.length; i++) {
     const child = element.children[i];
     const tag = child.tagName.toLowerCase();
@@ -154,6 +157,9 @@ export function removeHiddenElements(doc: Document): number {
     // never remove artwork transform group
     if (el.getAttribute("data-system-layer") === "artwork-transform") continue;
 
+    // never remove white background
+    if (el.getAttribute("data-system-layer") === "white-background") continue;
+
     if (isHidden(el)) {
       toRemove.push(el);
     }
@@ -210,6 +216,9 @@ export function removeElementsWithoutFillAndStroke(doc: Document): number {
 
     // never remove artwork transform group
     if (el.getAttribute("data-system-layer") === "artwork-transform") continue;
+
+    // never remove white background
+    if (el.getAttribute("data-system-layer") === "white-background") continue;
 
     if (!hasFillOrStroke(el)) {
       toRemove.push(el);

@@ -16,12 +16,39 @@ function isValidSvg(text: string): boolean {
   return true;
 }
 
-function hasRequiredDimensions(text: string): boolean {
-  return (
-    text.includes('width="2500"') &&
-    text.includes('height="2500"') &&
-    text.includes('viewBox="0 0 2500 2500"')
-  );
+function patchEpsBoundingBox(
+  epsText: string,
+  width: number,
+  height: number,
+): string {
+  const bboxLine = `%%BoundingBox: 0 0 ${width} ${height}`;
+  const hiresLine = `%%HiResBoundingBox: 0.000000 0.000000 ${width}.000000 ${height}.000000`;
+
+  let result = epsText;
+
+  const bboxRegex = /%%BoundingBox:\s*-?\d+\s+-?\d+\s+-?\d+\s+-?\d+/;
+  if (bboxRegex.test(result)) {
+    result = result.replace(bboxRegex, bboxLine);
+  } else {
+    const pagesRegex = /(%%Pages:\s*\d+\n)/;
+    if (pagesRegex.test(result)) {
+      result = result.replace(pagesRegex, `$1${bboxLine}\n`);
+    } else {
+      result = bboxLine + "\n" + result;
+    }
+  }
+
+  const hiresRegex = /%%HiResBoundingBox:\s*[\d.\-]+\s+[\d.\-]+\s+[\d.\-]+\s+[\d.\-]+/;
+  if (hiresRegex.test(result)) {
+    result = result.replace(hiresRegex, hiresLine);
+  } else {
+    const insertAfterBbox = /(%%BoundingBox:\s*\d+\s+\d+\s+\d+\s+\d+\n)/;
+    if (insertAfterBbox.test(result)) {
+      result = result.replace(insertAfterBbox, `$1${hiresLine}\n`);
+    }
+  }
+
+  return result;
 }
 
 export async function POST(request: NextRequest) {
@@ -29,7 +56,9 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { svgText, fileName } = body;
+    const { svgText, fileName, epsExportMode } = body;
+
+    const mode: string = epsExportMode || "clean";
 
     // Validate input
     if (!svgText || typeof svgText !== "string") {
@@ -68,19 +97,21 @@ export async function POST(request: NextRequest) {
     // Write SVG to temp file
     await fs.writeFile(inputPath, svgText, "utf8");
 
-    // Run Inkscape with page area export for correct 2500x2500 bounding box
+    // Run Inkscape - hybrid mode avoids --export-area-page to prevent clipping mask
+    const inkscapeArgs = [
+      inputPath,
+      "--export-type=eps",
+      `--export-filename=${outputPath}`,
+      "--export-ps-level=3",
+    ];
+
+    // Only add --export-area-page for non-hybrid modes
+    if (mode !== "hybrid") {
+      inkscapeArgs.push("--export-area-page");
+    }
+
     try {
-      await execFileAsync(
-        INKSCAPE_PATH,
-        [
-          inputPath,
-          "--export-type=eps",
-          `--export-filename=${outputPath}`,
-          "--export-area-page",
-          "--export-ps-level=3",
-        ],
-        { timeout: TIMEOUT_MS },
-      );
+      await execFileAsync(INKSCAPE_PATH, inkscapeArgs, { timeout: TIMEOUT_MS });
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Inkscape conversion failed.";
@@ -107,30 +138,39 @@ export async function POST(request: NextRequest) {
     }
 
     // Read output
-    const epsBuffer = await fs.readFile(outputPath);
+    let epsText = (await fs.readFile(outputPath)).toString("utf8");
 
     // Validate EPS header
-    const header = epsBuffer.subarray(0, 200).toString("utf8");
-    if (!header.includes("%!PS-Adobe") && !header.includes("EPSF")) {
+    if (!epsText.includes("%!PS-Adobe") && !epsText.includes("EPSF")) {
       return NextResponse.json(
         { error: "INVALID_EPS_OUTPUT", message: "Generated file does not appear to be a valid EPS." },
         { status: 500 },
       );
     }
 
-    // Validate BoundingBox
-    const epsText = epsBuffer.toString("utf8");
-    const bboxMatch = epsText.match(/%%BoundingBox:\s*(-?\d+)\s+(-?\d+)\s+(-?\d+)\s+(-?\d+)/);
-    if (bboxMatch) {
-      const [, x0, y0, x1, y1] = bboxMatch.map(Number);
-      const bboxW = x1 - x0;
-      const bboxH = y1 - y0;
-      const tolerance = 10;
-      if (bboxW < 2500 - tolerance || bboxH < 2500 - tolerance) {
-        console.warn(`EPS BoundingBox smaller than expected: ${bboxW}x${bboxH} (expected ~2500x2500)`);
+    // Patch BoundingBox for clean mode
+    if (mode === "clean") {
+      epsText = patchEpsBoundingBox(epsText, 2500, 2500);
+    }
+
+    // Hybrid mode: patch BoundingBox + sanitize without aggressive clipping
+    if (mode === "hybrid") {
+      epsText = patchEpsBoundingBox(epsText, 2500, 2500);
+
+      // Remove system markers if any
+      const systemMarkers = ["__eps_page_bounds__", "__eps_clip", "__page_clip", "__export_clip", "__canvas_clip"];
+      for (const marker of systemMarkers) {
+        const escaped = marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        // Remove PostScript comments referencing markers
+        const commentRegex = new RegExp(`%%.*${escaped}.*\\n`, "gi");
+        epsText = epsText.replace(commentRegex, "");
+        // Remove string literals containing markers
+        const stringRegex = new RegExp(`\\((?:[^()]*${escaped}[^()]*)\\)`, "gi");
+        epsText = epsText.replace(stringRegex, "()");
       }
     }
 
+    const epsBuffer = Buffer.from(epsText, "utf8");
     const safeName = (fileName || "export").replace(/[^a-zA-Z0-9\-_.]/g, "_");
 
     return new NextResponse(epsBuffer, {

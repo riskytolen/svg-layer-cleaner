@@ -12,6 +12,11 @@ const EDITOR_DATA_ATTRS = [
   "data-editor-id",
 ];
 
+const SYSTEM_ATTRS = [
+  "data-system-layer",
+  "data-deletable",
+];
+
 function removeAttributes(el: Element, attrs: string[]) {
   for (const attr of attrs) {
     el.removeAttribute(attr);
@@ -65,6 +70,7 @@ export function prepareSvgForExport(
     removeEditorData?: boolean;
     removeSelectionData?: boolean;
     keepLayerIds?: boolean;
+    removeBackground?: boolean;
   },
 ): string {
   const clone = doc.cloneNode(true) as Document;
@@ -77,6 +83,12 @@ export function prepareSvgForExport(
 
   if (!root.hasAttribute("xmlns")) {
     root.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  }
+
+  // Remove white background if requested (for transparent export)
+  if (options?.removeBackground) {
+    const bg = clone.querySelector('[data-system-layer="white-background"]');
+    if (bg) bg.parentNode?.removeChild(bg);
   }
 
   // Process all elements
@@ -93,6 +105,9 @@ export function prepareSvgForExport(
     if (options?.removeEditorData && !options?.keepLayerIds) {
       removeAttributes(el, EDITOR_DATA_ATTRS);
     }
+
+    // Remove system marker attributes from final output
+    removeAttributes(el, SYSTEM_ATTRS);
   }
 
   // Serialize

@@ -12,6 +12,11 @@ const EDITOR_DATA_ATTRS = [
   "data-editor-id",
 ];
 
+const SYSTEM_ATTRS = [
+  "data-system-layer",
+  "data-deletable",
+];
+
 const PAGE_BOUNDS_ID = "__eps_page_bounds__";
 
 function removeAttributes(el: Element, attrs: string[]) {
@@ -69,7 +74,7 @@ export function prepareSvgForEpsExport(
   const width = options?.width ?? 2500;
   const height = options?.height ?? 2500;
   const backgroundColor = options?.backgroundColor ?? "#FFFFFF";
-  const addPageBounds = options?.addPageBounds ?? true;
+  const addPageBounds = options?.addPageBounds ?? false;
   const removeEditorData = options?.removeEditorData ?? true;
 
   const clone = doc.cloneNode(true) as Document;
@@ -88,6 +93,7 @@ export function prepareSvgForEpsExport(
   const allElements = clone.querySelectorAll("*");
   for (const el of Array.from(allElements)) {
     removeAttributes(el, TEMP_ATTRS);
+    removeAttributes(el, SYSTEM_ATTRS);
     removeTempStyles(el);
     removeTempClasses(el);
     if (removeEditorData) {

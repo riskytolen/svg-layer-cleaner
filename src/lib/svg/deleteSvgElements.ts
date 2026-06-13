@@ -19,6 +19,11 @@ function isSystemLayer(el: Element): boolean {
   return el.getAttribute("data-system-layer") === "artwork-transform";
 }
 
+function isWhiteBackground(el: Element): boolean {
+  return el.getAttribute("data-system-layer") === "white-background" ||
+    el.getAttribute("data-deletable") === "false";
+}
+
 function isAlreadyRemoved(el: Element): boolean {
   return !el.parentNode;
 }
@@ -50,6 +55,10 @@ export function deleteElementByLayerId(
   }
 
   if (isSystemLayer(el)) {
+    return { deleted: false, childCount: 0, wasRoot: false, wasLocked: false };
+  }
+
+  if (isWhiteBackground(el)) {
     return { deleted: false, childCount: 0, wasRoot: false, wasLocked: false };
   }
 
@@ -95,6 +104,11 @@ export function deleteElementsByLayerIds(
     }
 
     if (isSystemLayer(el)) {
+      result.skippedSystemLayerCount++;
+      continue;
+    }
+
+    if (isWhiteBackground(el)) {
       result.skippedSystemLayerCount++;
       continue;
     }

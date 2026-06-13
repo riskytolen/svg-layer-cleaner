@@ -13,8 +13,13 @@ export { findElementsBySameFillColor, findElementsBySameStrokeColor, findElement
 export type { SelectByColorOptions } from "./selectSameColor";
 export { cleanSvgDocument, optimizeSvgWhitespace } from "./cleanSvg";
 export { normalizeSvgToSize } from "./normalizeSvgSize";
+export { ensureWhiteBackground } from "./ensureWhiteBackground";
+export { removeWhiteBackground } from "./removeWhiteBackground";
 export { prepareSvgForExport } from "./prepareSvgForExport";
 export { prepareSvgForEpsExport } from "./prepareSvgForEpsExport";
+export { prepareSvgForHybridEpsExport } from "./prepareSvgForHybridEpsExport";
+export { patchEpsBoundingBox } from "./patchEpsBoundingBox";
+export { sanitizeEpsOutput } from "./sanitizeEpsOutput";
 export { exportSvgFile } from "./exportSvg";
 export { exportSvgToPng } from "./exportPng";
 export { exportSvgToJpg } from "./exportJpg";
