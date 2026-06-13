@@ -13,8 +13,9 @@ export { findElementsBySameFillColor, findElementsBySameStrokeColor, findElement
 export type { SelectByColorOptions } from "./selectSameColor";
 export { cleanSvgDocument, optimizeSvgWhitespace } from "./cleanSvg";
 export { quickCleanSvg } from "./quickCleanSvg";
-export { findFirstPathInGroup } from "./findFirstPathInGroup";
+export { findFirstPathInGroup, findFirstProcessablePathAfterClean } from "./findFirstPathInGroup";
 export { removeSameFillAsFirstPath, isWhiteLikeColor } from "./removeSameFillAsFirstPath";
+export { resolveElementFill, extractCssFillRules, isExcludedElement, isElementVisible, debugFirstPaths } from "./resolveElementFill";
 export { normalizeSvgToSize } from "./normalizeSvgSize";
 export { prepareSvgForExport } from "./prepareSvgForExport";
 export { prepareSvgForEpsExport } from "./prepareSvgForEpsExport";

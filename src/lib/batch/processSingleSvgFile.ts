@@ -7,7 +7,6 @@ import { quickCleanSvg } from "@/lib/svg/quickCleanSvg";
 import { removeSameFillAsFirstPath } from "@/lib/svg/removeSameFillAsFirstPath";
 import { prepareSvgForExport } from "@/lib/svg/prepareSvgForExport";
 import { prepareSvgForEpsExport } from "@/lib/svg/prepareSvgForEpsExport";
-import { normalizeColor } from "@/lib/utils/colorUtils";
 
 export async function processSingleSvgFile(
   file: File,
@@ -33,7 +32,7 @@ export async function processSingleSvgFile(
   try {
     addLog({ level: "process", message: `Processing: ${fileName}`, fileName });
 
-    // Read file
+    // Step 1: Read file
     const svgText = await file.text();
     result.beforeSize = svgText.length;
 
@@ -44,7 +43,7 @@ export async function processSingleSvgFile(
       return result;
     }
 
-    // Parse
+    // Step 2: Parse SVG
     let doc = parseSvg(svgText);
     const root = doc.documentElement;
     if (!root || root.tagName.toLowerCase() !== "svg") {
@@ -54,7 +53,7 @@ export async function processSingleSvgFile(
       return result;
     }
 
-    // Normalize to 2500x2500
+    // Step 3: Normalize to 2500x2500
     if (options.autoResize2500) {
       normalizeSvgToSize(doc, {
         targetWidth: 2500,
@@ -64,16 +63,29 @@ export async function processSingleSvgFile(
       addLog({ level: "info", message: `${fileName}: Normalized to 2500x2500.`, fileName });
     }
 
-    // Assign IDs
+    // Step 4: Assign IDs before quick clean
     assignElementIds(doc);
 
-    // Quick Clean
+    // Step 5: Quick Clean
     if (options.quickClean) {
       const cleanResult = quickCleanSvg(doc);
-      addLog({ level: "info", message: `${fileName}: Quick clean removed ${cleanResult.totalRemoved} elements.`, fileName });
+      addLog({ level: "info", message: `${fileName}: [QUICK CLEAN] completed, removed ${cleanResult.totalRemoved} elements.`, fileName });
     }
 
-    // Remove same fill as first path
+    // Step 6: Serialize and re-parse after Quick Clean
+    // This ensures the DOM is clean and structure matches manual mode
+    const cleanedSvgText = serializeSvg(doc);
+    doc = parseSvg(cleanedSvgText);
+    addLog({ level: "info", message: `${fileName}: [LAYER] rebuilt after quick clean`, fileName });
+
+    // Step 7: Re-assign IDs on clean DOM
+    assignElementIds(doc);
+
+    // Step 8: Count paths for debug info
+    const allPaths = doc.querySelectorAll("path");
+    addLog({ level: "info", message: `${fileName}: [DEBUG] Total paths after quick clean: ${allPaths.length}`, fileName });
+
+    // Step 9: Remove same fill as first path
     if (options.removeSameFillAsFirstPath) {
       const removeResult = removeSameFillAsFirstPath(doc, {
         scope: options.firstPathScope,
@@ -93,11 +105,11 @@ export async function processSingleSvgFile(
       result.matchedCount = removeResult.matchedCount;
       result.deletedCount = removeResult.deletedCount;
 
-      addLog({ level: "color", message: `${fileName}: Path 1 fill: ${removeResult.normalizedFill}`, fileName });
-      addLog({ level: "delete", message: `${fileName}: ${removeResult.deletedCount} elements deleted.`, fileName });
+      addLog({ level: "color", message: `${fileName}: [COLOR] Path 1 fill: ${removeResult.normalizedFill}`, fileName });
+      addLog({ level: "delete", message: `${fileName}: [DELETE] ${removeResult.deletedCount} elements deleted.`, fileName });
     }
 
-    // Serialize final SVG
+    // Step 10: Serialize final SVG
     const finalSvgText = serializeSvg(doc);
     result.afterSize = finalSvgText.length;
 
@@ -109,7 +121,7 @@ export async function processSingleSvgFile(
       return result;
     }
 
-    // Export to selected formats
+    // Step 11: Export to selected formats
     const baseName = fileName.replace(/\.svg$/i, "");
 
     for (const format of options.exportFormats) {

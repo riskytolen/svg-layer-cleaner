@@ -1,17 +1,5 @@
 import { FirstPathScope } from "@/lib/batch/batchTypes";
-
-const EXCLUDED_TAGS = new Set(["defs", "clippath", "mask", "pattern", "lineargradient", "radialgradient", "symbol"]);
-
-function isExcludedElement(el: Element): boolean {
-  const tag = el.tagName.toLowerCase();
-  if (EXCLUDED_TAGS.has(tag)) return true;
-  if (el.closest("defs")) return true;
-  if (el.closest("clippath")) return true;
-  if (el.closest("mask")) return true;
-  if (el.getAttribute("data-system-layer")) return true;
-  if (el.getAttribute("data-locked") === "true") return true;
-  return false;
-}
+import { resolveElementFill, extractCssFillRules, isExcludedElement, isElementVisible } from "./resolveElementFill";
 
 function findGroupByName(doc: Document, name: string): Element | null {
   const allGs = doc.querySelectorAll("g");
@@ -26,6 +14,38 @@ function findGroupByName(doc: Document, name: string): Element | null {
   return null;
 }
 
+function findMainGroup1(doc: Document): Element | null {
+  // Try multiple naming conventions
+  let group = findGroupByName(doc, "group 1");
+  if (!group) group = findGroupByName(doc, "group-1");
+  if (!group) group = findGroupByName(doc, "group1");
+
+  // Fallback: first <g> at root level
+  if (!group) {
+    const root = doc.documentElement;
+    const allGs = root.querySelectorAll(":scope > g, :scope > * > g");
+    for (const g of Array.from(allGs)) {
+      if (!isExcludedElement(g)) {
+        group = g;
+        break;
+      }
+    }
+  }
+
+  return group;
+}
+
+function collectPathsInElement(el: Element): Element[] {
+  const paths: Element[] = [];
+  const allPaths = el.querySelectorAll("path");
+  for (const path of Array.from(allPaths)) {
+    if (!isExcludedElement(path) && isElementVisible(path)) {
+      paths.push(path);
+    }
+  }
+  return paths;
+}
+
 function findFirstPathInElement(el: Element): Element | null {
   const paths = el.querySelectorAll("path");
   for (const path of Array.from(paths)) {
@@ -34,6 +54,9 @@ function findFirstPathInElement(el: Element): Element | null {
   return null;
 }
 
+/**
+ * Original function for batch automation with scope parameter.
+ */
 export function findFirstPathInGroup(
   doc: Document,
   options: {
@@ -45,25 +68,7 @@ export function findFirstPathInGroup(
   if (!root) return null;
 
   if (scope === "group-1") {
-    // Try to find "Group 1" by name/id
-    let group = findGroupByName(doc, "group 1");
-    if (!group) {
-      group = findGroupByName(doc, "group-1");
-    }
-    if (!group) {
-      group = findGroupByName(doc, "group1");
-    }
-
-    // Fallback: first <g> inside root
-    if (!group) {
-      const allGs = root.querySelectorAll(":scope > g, :scope > * > g");
-      for (const g of Array.from(allGs)) {
-        if (!isExcludedElement(g)) {
-          group = g;
-          break;
-        }
-      }
-    }
+    let group = findMainGroup1(doc);
 
     if (group) {
       const path = findFirstPathInElement(group);
@@ -87,4 +92,48 @@ export function findFirstPathInGroup(
 
   // scope === "document"
   return findFirstPathInElement(root);
+}
+
+/**
+ * Post-quick-clean function: finds the first valid path with a resolvable fill.
+ * Walks through all path candidates and returns the first one with a fill.
+ */
+export function findFirstProcessablePathAfterClean(
+  doc: Document,
+): Element | null {
+  const cssRules = extractCssFillRules(doc);
+  const root = doc.documentElement;
+  if (!root) return null;
+
+  // Collect all candidate paths
+  const candidates: Element[] = [];
+
+  // Priority 1: paths in Group 1
+  const group = findMainGroup1(doc);
+  if (group) {
+    candidates.push(...collectPathsInElement(group));
+  }
+
+  // Priority 2: all paths in document
+  const allPaths = root.querySelectorAll("path");
+  for (const path of Array.from(allPaths)) {
+    if (!candidates.includes(path) && !isExcludedElement(path) && isElementVisible(path)) {
+      candidates.push(path);
+    }
+  }
+
+  // Find first path with a resolved fill
+  for (const path of candidates) {
+    const fill = resolveElementFill(path, cssRules);
+    if (fill) {
+      return path;
+    }
+  }
+
+  // No path with fill found - return first path anyway (will trigger skip with warning)
+  if (candidates.length > 0) {
+    return candidates[0];
+  }
+
+  return null;
 }

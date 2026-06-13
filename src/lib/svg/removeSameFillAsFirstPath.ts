@@ -1,27 +1,14 @@
 import { normalizeColor } from "@/lib/utils/colorUtils";
-import { findFirstPathInGroup } from "./findFirstPathInGroup";
+import {
+  resolveElementFill,
+  extractCssFillRules,
+  isExcludedElement,
+  isElementVisible,
+} from "./resolveElementFill";
+import { findFirstProcessablePathAfterClean } from "./findFirstPathInGroup";
 import { FirstPathScope } from "@/lib/batch/batchTypes";
 
-const EXCLUDED_TAGS = new Set(["svg", "defs", "clippath", "mask", "pattern", "lineargradient", "radialgradient", "symbol"]);
-
-function getElementFill(element: Element): string | null {
-  const attr = element.getAttribute("fill");
-  if (attr) {
-    const norm = normalizeColor(attr);
-    if (norm) return norm;
-  }
-
-  const style = element.getAttribute("style");
-  if (style) {
-    const match = style.match(/fill\s*:\s*([^;]+)/);
-    if (match) {
-      const norm = normalizeColor(match[1].trim());
-      if (norm) return norm;
-    }
-  }
-
-  return null;
-}
+const VISUAL_TAGS = new Set(["path", "rect", "circle", "ellipse", "polygon", "polyline", "line", "text"]);
 
 export function isWhiteLikeColor(color: string, tolerance: number): boolean {
   const hex = normalizeColor(color);
@@ -60,18 +47,30 @@ export function removeSameFillAsFirstPath(
     warning: undefined as string | undefined,
   };
 
-  const path1 = findFirstPathInGroup(doc, { scope: options.scope });
+  const cssRules = extractCssFillRules(doc);
+
+  // Find first processable path (with resolved fill)
+  const path1 = findFirstProcessablePathAfterClean(doc);
   if (!path1) {
-    result.warning = "No path found in specified scope.";
+    result.warning = "No valid path with resolved fill found after quick clean.";
     result.skipped = true;
     return result;
   }
 
   result.path1Element = path1;
 
-  const fill = getElementFill(path1);
+  // Resolve fill color (supports attribute, inline style, CSS class, parent group)
+  const fill = resolveElementFill(path1, cssRules);
   if (!fill) {
-    result.warning = "First path has no fill color.";
+    // Log debug info
+    const rawFill = path1.getAttribute("fill");
+    const classAttr = path1.getAttribute("class");
+    const parentFill = path1.parentElement?.getAttribute("fill") || null;
+
+    result.warning = [
+      "First valid path has no resolved fill color.",
+      `rawFill=${rawFill}, class=${classAttr}, parentFill=${parentFill}`,
+    ].join(" ");
     result.skipped = true;
     return result;
   }
@@ -99,15 +98,11 @@ export function removeSameFillAsFirstPath(
   const toRemove: Element[] = [];
 
   for (const el of Array.from(allElements)) {
-    if (EXCLUDED_TAGS.has(el.tagName.toLowerCase())) continue;
-    if (el.closest("defs")) continue;
-    if (el.closest("clippath")) continue;
-    if (el.closest("mask")) continue;
-    if (el.getAttribute("data-system-layer")) continue;
-    if (el.getAttribute("data-locked") === "true") continue;
-    if (el === doc.documentElement) continue;
+    if (VISUAL_TAGS.has(el.tagName.toLowerCase()) && isExcludedElement(el)) continue;
+    if (!VISUAL_TAGS.has(el.tagName.toLowerCase())) continue;
+    if (!isElementVisible(el)) continue;
 
-    const elFill = getElementFill(el);
+    const elFill = resolveElementFill(el, cssRules);
     if (elFill === normalizedFill) {
       toRemove.push(el);
     }
