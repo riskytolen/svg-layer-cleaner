@@ -17,6 +17,7 @@ import {
   normalizeSvgToSize,
   prepareSvgForExport,
   prepareSvgForEpsExport,
+  quickCleanSvgWithDefaultOptions,
   exportSvgFile,
   exportSvgToPng,
   exportSvgToJpg,
@@ -485,19 +486,21 @@ export const useSvgLayerStore = create<SvgLayerStore>((set, get) => ({
     // save history before mutation
     const svgTextBefore = serializeSvg(state.svgDocument);
 
-    const result = cleanSvgDocument(state.svgDocument, state.cleanOptions);
+    // Use the single source of truth pipeline
+    const cleaned = quickCleanSvgWithDefaultOptions(state.svgDocument);
 
-    if (result.totalRemoved === 0) {
+    if (cleaned.result.totalRemoved === 0) {
       set({ lastActionSummary: "No removable elements found." });
       return;
     }
 
-    const { layers, svgText } = rebuildFromDoc(state.svgDocument);
+    const { layers, svgText } = rebuildFromDoc(cleaned.doc);
     const docInfo = state.documentInfo
-      ? getSvgDocumentInfo(state.svgDocument, state.documentInfo.fileName, state.documentInfo.fileSize)
+      ? getSvgDocumentInfo(cleaned.doc, state.documentInfo.fileName, state.documentInfo.fileSize)
       : null;
 
     set({
+      svgDocument: cleaned.doc,
       svgText,
       layers,
       documentInfo: docInfo,
@@ -506,8 +509,8 @@ export const useSvgLayerStore = create<SvgLayerStore>((set, get) => ({
       sameColorResult: null,
       history: [...state.history, svgTextBefore],
       future: [],
-      lastCleanResult: result,
-      lastActionSummary: `SVG cleaned successfully. ${result.totalRemoved} items removed. File size reduced by ${result.reducedPercentage}%.`,
+      lastCleanResult: cleaned.result,
+      lastActionSummary: `SVG cleaned successfully. ${cleaned.result.totalRemoved} items removed. File size reduced by ${cleaned.result.reducedPercentage}%.`,
     });
   },
 

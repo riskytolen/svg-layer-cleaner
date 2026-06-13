@@ -13,7 +13,6 @@ const EDITOR_DATA_ATTRS = [
 ];
 
 const SYSTEM_ATTRS = [
-  "data-system-layer",
   "data-deletable",
 ];
 

@@ -3,7 +3,7 @@ import { parseSvg } from "@/lib/svg/parseSvg";
 import { serializeSvg } from "@/lib/svg/serializeSvg";
 import { assignElementIds } from "@/lib/svg/assignElementIds";
 import { normalizeSvgToSize } from "@/lib/svg/normalizeSvgSize";
-import { quickCleanSvg } from "@/lib/svg/quickCleanSvg";
+import { quickCleanSvgWithDefaultOptions, getTopLevelVisualGroups } from "@/lib/svg/quickCleanPipeline";
 import { removeSameFillAsFirstPath } from "@/lib/svg/removeSameFillAsFirstPath";
 import { prepareSvgForExport } from "@/lib/svg/prepareSvgForExport";
 import { prepareSvgForEpsExport } from "@/lib/svg/prepareSvgForEpsExport";
@@ -66,24 +66,33 @@ export async function processSingleSvgFile(
     // Step 4: Assign IDs before quick clean
     assignElementIds(doc);
 
-    // Step 5: Quick Clean
+    // Step 5: Quick Clean using the SAME function as manual button
     if (options.quickClean) {
-      const cleanResult = quickCleanSvg(doc);
-      addLog({ level: "info", message: `${fileName}: [QUICK CLEAN] completed, removed ${cleanResult.totalRemoved} elements.`, fileName });
+      const cleaned = quickCleanSvgWithDefaultOptions(doc);
+      doc = cleaned.doc;
+      addLog({ level: "info", message: `${fileName}: [QUICK CLEAN] using manual default quick clean`, fileName });
+      addLog({ level: "info", message: `${fileName}: [QUICK CLEAN] removed empty paths: ${cleaned.result.removedEmptyPaths + cleaned.result.removedPathsWithoutD}`, fileName });
+      addLog({ level: "info", message: `${fileName}: [QUICK CLEAN] removed empty groups: ${cleaned.result.removedEmptyGroups}`, fileName });
+      addLog({ level: "info", message: `${fileName}: [QUICK CLEAN] result serialized`, fileName });
     }
 
-    // Step 6: Serialize and re-parse after Quick Clean
-    // This ensures the DOM is clean and structure matches manual mode
+    // Step 6: Re-parse after Quick Clean for fresh DOM
     const cleanedSvgText = serializeSvg(doc);
     doc = parseSvg(cleanedSvgText);
-    addLog({ level: "info", message: `${fileName}: [LAYER] rebuilt after quick clean`, fileName });
+    addLog({ level: "info", message: `${fileName}: [REPARSE] cleaned document parsed again`, fileName });
 
     // Step 7: Re-assign IDs on clean DOM
     assignElementIds(doc);
 
-    // Step 8: Count paths for debug info
+    // Step 8: Debug - count paths and top-level groups
     const allPaths = doc.querySelectorAll("path");
+    const topLevelGroups = getTopLevelVisualGroups(doc);
+    addLog({ level: "info", message: `${fileName}: [LAYER] root groups after quick clean: ${topLevelGroups.length}`, fileName });
     addLog({ level: "info", message: `${fileName}: [DEBUG] Total paths after quick clean: ${allPaths.length}`, fileName });
+
+    if (topLevelGroups.length > 1) {
+      addLog({ level: "warning", message: `${fileName}: [WARNING] Multiple top-level groups detected after quick clean.`, fileName });
+    }
 
     // Step 9: Remove same fill as first path
     if (options.removeSameFillAsFirstPath) {
