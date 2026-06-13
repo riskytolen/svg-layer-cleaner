@@ -33,24 +33,7 @@ export function AutomatePanel() {
   const isFolderPicked = !!options.inputFolderHandle && !!options.outputFolderHandle;
 
   return (
-    <div className="flex flex-col h-screen">
-      {/* Header */}
-      <header className="flex items-center justify-between px-6 py-3 border-b border-border bg-card">
-        <div className="flex items-center gap-3">
-          <FolderOpen className="w-5 h-5 text-orange-500" />
-          <h1 className="text-lg font-semibold">Automate / Batch Processing</h1>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          {isRunning && (
-            <span className="flex items-center gap-1">
-              <Loader2 className="w-3 h-3 animate-spin" />
-              {currentFileIndex}/{totalFiles} - {currentFileName}
-            </span>
-          )}
-        </div>
-      </header>
-
-      <div className="flex-1 overflow-auto p-6 space-y-6">
+    <div className="flex-1 overflow-auto p-6 space-y-6">
         {/* Folder Selection */}
         <section className="grid grid-cols-2 gap-4">
           <FolderPicker type="input" />
@@ -138,6 +121,5 @@ export function AutomatePanel() {
         {/* Log */}
         <BatchLogPanel />
       </div>
-    </div>
   );
 }

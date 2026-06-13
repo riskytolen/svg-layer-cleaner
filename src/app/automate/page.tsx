@@ -1,11 +1,13 @@
 "use client";
 
 import { AutomatePanel } from "@/components/automate/AutomatePanel";
+import { AppTopNav } from "@/components/layout/AppTopNav";
 
 export default function AutomatePage() {
   return (
-    <main className="min-h-screen bg-background">
+    <div className="flex flex-col h-screen">
+      <AppTopNav activeRoute="automate" />
       <AutomatePanel />
-    </main>
+    </div>
   );
 }

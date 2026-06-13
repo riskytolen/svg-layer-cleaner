@@ -1,13 +1,7 @@
 "use client";
 
-import { SvgLayerBreakdown } from "@/components/editor/SvgLayerBreakdown";
-import { Toaster } from "@/components/ui/toaster";
+import { ModeSelectionDashboard } from "@/components/dashboard/ModeSelectionDashboard";
 
-export default function Home() {
-  return (
-    <>
-      <SvgLayerBreakdown />
-      <Toaster />
-    </>
-  );
+export default function HomePage() {
+  return <ModeSelectionDashboard />;
 }
