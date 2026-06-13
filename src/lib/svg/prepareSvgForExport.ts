@@ -70,7 +70,6 @@ export function prepareSvgForExport(
     removeEditorData?: boolean;
     removeSelectionData?: boolean;
     keepLayerIds?: boolean;
-    removeBackground?: boolean;
   },
 ): string {
   const clone = doc.cloneNode(true) as Document;
@@ -83,12 +82,6 @@ export function prepareSvgForExport(
 
   if (!root.hasAttribute("xmlns")) {
     root.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-  }
-
-  // Remove white background if requested (for transparent export)
-  if (options?.removeBackground) {
-    const bg = clone.querySelector('[data-system-layer="white-background"]');
-    if (bg) bg.parentNode?.removeChild(bg);
   }
 
   // Process all elements

@@ -15,11 +15,8 @@ import {
   findElementsBySameFillAndStrokeColor,
   cleanSvgDocument,
   normalizeSvgToSize,
-  ensureWhiteBackground,
-  removeWhiteBackground,
   prepareSvgForExport,
   prepareSvgForEpsExport,
-  prepareSvgForHybridEpsExport,
   exportSvgFile,
   exportSvgToPng,
   exportSvgToJpg,
@@ -83,7 +80,6 @@ export const useSvgLayerStore = create<SvgLayerStore>((set, get) => ({
   resizeOptions: { ...defaultSvgResizeOptions },
   resizeResult: null,
   autoResizeOnUpload: true,
-  backgroundMode: "white",
   zoom: 1,
   panX: 0,
   panY: 0,
@@ -119,13 +115,6 @@ export const useSvgLayerStore = create<SvgLayerStore>((set, get) => ({
       const state = get();
       if (state.autoResizeOnUpload) {
         resizeResult = normalizeSvgToSize(doc, state.resizeOptions);
-        svgText = serializeSvg(doc);
-        doc = parseSvg(svgText);
-      }
-
-      // Add white background if in white mode
-      if (state.backgroundMode === "white") {
-        ensureWhiteBackground(doc, { width: 2500, height: 2500, fill: "#FFFFFF" });
         svgText = serializeSvg(doc);
         doc = parseSvg(svgText);
       }
@@ -593,44 +582,6 @@ export const useSvgLayerStore = create<SvgLayerStore>((set, get) => ({
     set({ zoom: fitZoom, fitZoom, panX, panY });
   },
 
-  setBackgroundMode: (mode) => {
-    const state = get();
-    if (!state.svgDocument) {
-      set({ backgroundMode: mode });
-      return;
-    }
-
-    const svgTextBefore = serializeSvg(state.svgDocument);
-
-    if (mode === "white") {
-      ensureWhiteBackground(state.svgDocument, { width: 2500, height: 2500, fill: "#FFFFFF" });
-    } else {
-      removeWhiteBackground(state.svgDocument);
-    }
-
-    const newSvgText = serializeSvg(state.svgDocument);
-    const doc = parseSvg(newSvgText);
-    const { layers } = rebuildFromDoc(doc);
-    const docInfo = state.documentInfo
-      ? getSvgDocumentInfo(doc, state.documentInfo.fileName, state.documentInfo.fileSize)
-      : null;
-
-    set({
-      svgDocument: doc,
-      svgText: newSvgText,
-      layers,
-      documentInfo: docInfo,
-      backgroundMode: mode,
-      selectedLayerId: null,
-      selectedLayerIds: [],
-      history: [...state.history, svgTextBefore],
-      future: [],
-      lastActionSummary: mode === "white"
-        ? "White background enabled."
-        : "Transparent background enabled.",
-    });
-  },
-
   setExportSettings: (settings) => {
     set((state) => ({
       exportSettings: { ...state.exportSettings, ...settings },
@@ -650,11 +601,9 @@ export const useSvgLayerStore = create<SvgLayerStore>((set, get) => ({
     set({ isExporting: true, exportError: null });
 
     try {
-      const isTransparentMode = state.backgroundMode === "transparent";
       const svgText = prepareSvgForExport(state.svgDocument, {
         removeEditorData: settings.removeEditorData,
         keepLayerIds: settings.keepLayerIds,
-        removeBackground: isTransparentMode,
       });
 
       const baseName = state.documentInfo?.fileName || "svg-export";
@@ -673,7 +622,7 @@ export const useSvgLayerStore = create<SvgLayerStore>((set, get) => ({
               width: settings.width,
               height: settings.height,
               scale: settings.scale,
-              transparent: isTransparentMode,
+              transparent: settings.transparent,
             },
             fileName,
           );
@@ -696,24 +645,14 @@ export const useSvgLayerStore = create<SvgLayerStore>((set, get) => ({
         }
         case "eps": {
           const fileName = getCleanFileName(baseName, "eps");
-          let epsSvgText: string;
-          if (settings.epsExportMode === "hybrid") {
-            epsSvgText = prepareSvgForHybridEpsExport(state.svgDocument, {
-              width: 2500,
-              height: 2500,
-              removeEditorData: true,
-            });
-          } else {
-            const isStrict = settings.epsExportMode === "strict-size";
-            epsSvgText = prepareSvgForEpsExport(state.svgDocument, {
-              width: 2500,
-              height: 2500,
-              backgroundColor: "#FFFFFF",
-              addPageBounds: isStrict,
-              removeEditorData: true,
-            });
-          }
-          const epsBlob = await exportSvgToEps(epsSvgText, fileName, settings.epsExportMode);
+          const epsSvgText = prepareSvgForEpsExport(state.svgDocument, {
+            width: 2500,
+            height: 2500,
+            backgroundColor: "#FFFFFF",
+            addPageBounds: true,
+            removeEditorData: true,
+          });
+          const epsBlob = await exportSvgToEps(epsSvgText, fileName);
           downloadBlob(epsBlob, fileName);
           break;
         }

@@ -11,7 +11,6 @@ import { CleanSummaryDialog } from "./CleanSummaryDialog";
 import { DocumentInfoPanel } from "./DocumentInfoPanel";
 import { EmptyState } from "./EmptyState";
 import { ResizeSettingsPanel } from "./ResizeSettingsPanel";
-import { BackgroundSettingsPanel } from "./BackgroundSettingsPanel";
 import { CanvasControls } from "./CanvasControls";
 import { useSvgLayerStore } from "@/store/svgLayerStore";
 import { useToast } from "@/components/ui/use-toast";
@@ -192,11 +191,6 @@ export function SvgLayerBreakdown() {
                   </h2>
                 </div>
                 <ResizeSettingsPanel />
-              </div>
-              <div className="flex-none overflow-hidden border-b border-border">
-                <div className="px-3 py-2 border-b border-border">
-                  <BackgroundSettingsPanel />
-                </div>
               </div>
               <div className="flex-1 overflow-hidden">
                 <CleanSvgPanel />

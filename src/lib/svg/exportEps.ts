@@ -1,12 +1,11 @@
 export async function exportSvgToEps(
   svgText: string,
   fileName: string,
-  epsExportMode: "clean" | "strict-size" | "hybrid" = "hybrid",
 ): Promise<Blob> {
   const response = await fetch("/api/export-eps", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ svgText, fileName, epsExportMode }),
+    body: JSON.stringify({ svgText, fileName }),
   });
 
   if (!response.ok) {

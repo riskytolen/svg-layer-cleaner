@@ -56,9 +56,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { svgText, fileName, epsExportMode } = body;
-
-    const mode: string = epsExportMode || "clean";
+    const { svgText, fileName } = body;
 
     // Validate input
     if (!svgText || typeof svgText !== "string") {
@@ -97,18 +95,14 @@ export async function POST(request: NextRequest) {
     // Write SVG to temp file
     await fs.writeFile(inputPath, svgText, "utf8");
 
-    // Run Inkscape - hybrid mode avoids --export-area-page to prevent clipping mask
+    // Run Inkscape with strict-size mode (export-area-page for stable bounds)
     const inkscapeArgs = [
       inputPath,
       "--export-type=eps",
       `--export-filename=${outputPath}`,
       "--export-ps-level=3",
+      "--export-area-page",
     ];
-
-    // Only add --export-area-page for non-hybrid modes
-    if (mode !== "hybrid") {
-      inkscapeArgs.push("--export-area-page");
-    }
 
     try {
       await execFileAsync(INKSCAPE_PATH, inkscapeArgs, { timeout: TIMEOUT_MS });
@@ -148,27 +142,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Patch BoundingBox for clean mode
-    if (mode === "clean") {
-      epsText = patchEpsBoundingBox(epsText, 2500, 2500);
-    }
-
-    // Hybrid mode: patch BoundingBox + sanitize without aggressive clipping
-    if (mode === "hybrid") {
-      epsText = patchEpsBoundingBox(epsText, 2500, 2500);
-
-      // Remove system markers if any
-      const systemMarkers = ["__eps_page_bounds__", "__eps_clip", "__page_clip", "__export_clip", "__canvas_clip"];
-      for (const marker of systemMarkers) {
-        const escaped = marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        // Remove PostScript comments referencing markers
-        const commentRegex = new RegExp(`%%.*${escaped}.*\\n`, "gi");
-        epsText = epsText.replace(commentRegex, "");
-        // Remove string literals containing markers
-        const stringRegex = new RegExp(`\\((?:[^()]*${escaped}[^()]*)\\)`, "gi");
-        epsText = epsText.replace(stringRegex, "()");
-      }
-    }
+    // Patch BoundingBox to 2500x2500
+    epsText = patchEpsBoundingBox(epsText, 2500, 2500);
 
     const epsBuffer = Buffer.from(epsText, "utf8");
     const safeName = (fileName || "export").replace(/[^a-zA-Z0-9\-_.]/g, "_");

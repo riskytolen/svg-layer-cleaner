@@ -27,8 +27,6 @@ function getElementColor(element: Element, mode: "fill" | "stroke"): string | nu
 function isExcludedElement(element: Element): boolean {
   const tag = element.tagName.toLowerCase();
   if (EXCLUDED_TAGS.has(tag)) return true;
-  if (element.getAttribute("data-system-layer") === "white-background") return true;
-  if (element.getAttribute("data-deletable") === "false") return true;
   const display = element.getAttribute("display");
   if (display === "none") return true;
   return false;
