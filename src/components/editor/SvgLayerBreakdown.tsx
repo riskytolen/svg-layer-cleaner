@@ -6,8 +6,12 @@ import { SvgPreview } from "./SvgPreview";
 import { LayerPanel } from "./LayerPanel";
 import { LayerDetailPanel } from "./LayerDetailPanel";
 import { ColorGroupPanel } from "./ColorGroupPanel";
+import { CleanSvgPanel } from "./CleanSvgPanel";
+import { CleanSummaryDialog } from "./CleanSummaryDialog";
 import { DocumentInfoPanel } from "./DocumentInfoPanel";
 import { EmptyState } from "./EmptyState";
+import { ResizeSettingsPanel } from "./ResizeSettingsPanel";
+import { CanvasControls } from "./CanvasControls";
 import { useSvgLayerStore } from "@/store/svgLayerStore";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -20,8 +24,10 @@ export function SvgLayerBreakdown() {
   const redo = useSvgLayerStore((s) => s.redo);
   const selectedLayerIds = useSvgLayerStore((s) => s.selectedLayerIds);
   const lastActionSummary = useSvgLayerStore((s) => s.lastActionSummary);
+  const lastCleanResult = useSvgLayerStore((s) => s.lastCleanResult);
   const { toast } = useToast();
   const [isDragging, setIsDragging] = useState(false);
+  const [showCleanSummary, setShowCleanSummary] = useState(false);
 
   // Show toast on lastActionSummary change
   useEffect(() => {
@@ -32,6 +38,13 @@ export function SvgLayerBreakdown() {
       variant: isError ? "destructive" : "default",
     });
   }, [lastActionSummary, toast]);
+
+  // Show clean summary dialog when clean completes
+  useEffect(() => {
+    if (lastCleanResult && lastCleanResult.totalRemoved > 0) {
+      setShowCleanSummary(true);
+    }
+  }, [lastCleanResult]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -87,10 +100,13 @@ export function SvgLayerBreakdown() {
           description: currentError,
         });
       } else if (useSvgLayerStore.getState().documentInfo) {
+        const resizeResult = useSvgLayerStore.getState().resizeResult;
         toast({
           variant: "success",
           title: "Upload Berhasil",
-          description: "File SVG berhasil dibaca.",
+          description: resizeResult?.resized
+            ? "SVG resized to 2500x2500 px."
+            : "File SVG berhasil dibaca.",
         });
       }
     },
@@ -142,11 +158,12 @@ export function SvgLayerBreakdown() {
             </aside>
 
             {/* Center - SVG Preview */}
-            <main className="flex-1 overflow-hidden">
+            <main className="flex-1 overflow-hidden relative preview-viewport">
               <SvgPreview />
+              <CanvasControls />
             </main>
 
-            {/* Right Sidebar - Layer Detail + Color Group */}
+            {/* Right Sidebar - Layer Detail + Color Group + Resize + Clean SVG */}
             <aside className="w-80 bg-card border-l border-border flex flex-col shrink-0">
               <div className="flex-1 overflow-hidden border-b border-border">
                 <div className="px-3 py-2 border-b border-border">
@@ -156,13 +173,27 @@ export function SvgLayerBreakdown() {
                 </div>
                 <LayerDetailPanel />
               </div>
-              <div className="flex-1 overflow-hidden">
+              <div className="flex-1 overflow-hidden border-b border-border">
                 <div className="px-3 py-2 border-b border-border">
                   <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     Color Selection
                   </h2>
                 </div>
                 <ColorGroupPanel />
+              </div>
+              <div className="flex-none overflow-hidden border-b border-border">
+                <div
+                  id="resize-settings-panel-trigger"
+                  className="px-3 py-2 border-b border-border cursor-pointer"
+                >
+                  <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Canvas Size
+                  </h2>
+                </div>
+                <ResizeSettingsPanel />
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <CleanSvgPanel />
               </div>
             </aside>
           </>
@@ -177,6 +208,13 @@ export function SvgLayerBreakdown() {
           </main>
         )}
       </div>
+
+      {/* Clean Summary Dialog */}
+      <CleanSummaryDialog
+        open={showCleanSummary}
+        result={lastCleanResult}
+        onClose={() => setShowCleanSummary(false)}
+      />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import { SvgLayer, SvgLayerStore } from "@/types/svg";
+import { SvgLayer, SvgLayerStore, defaultCleanSvgOptions, defaultSvgResizeOptions, defaultExportSettings } from "@/types/svg";
 import {
   parseSvg,
   validateSvgFile,
@@ -13,8 +13,40 @@ import {
   findElementsBySameFillColor,
   findElementsBySameStrokeColor,
   findElementsBySameFillAndStrokeColor,
+  cleanSvgDocument,
+  normalizeSvgToSize,
+  prepareSvgForExport,
+  prepareSvgForEpsExport,
+  exportSvgFile,
+  exportSvgToPng,
+  exportSvgToJpg,
+  exportSvgToEps,
 } from "@/lib/svg";
 import { normalizeColor } from "@/lib/utils/colorUtils";
+import { getCleanFileName } from "@/lib/utils/fileNameUtils";
+import { downloadBlob } from "@/lib/utils/downloadFile";
+
+const SVG_CANVAS_SIZE = 2500;
+
+function computeFitZoom(containerWidth: number, containerHeight: number): number {
+  const padding = 48;
+  const scaleX = (containerWidth - padding * 2) / SVG_CANVAS_SIZE;
+  const scaleY = (containerHeight - padding * 2) / SVG_CANVAS_SIZE;
+  return Math.max(0.05, Math.min(Math.min(scaleX, scaleY), 1));
+}
+
+function computeCenterPan(
+  containerWidth: number,
+  containerHeight: number,
+  zoom: number,
+): { panX: number; panY: number } {
+  const canvasDisplayW = SVG_CANVAS_SIZE * zoom;
+  const canvasDisplayH = SVG_CANVAS_SIZE * zoom;
+  return {
+    panX: (containerWidth - canvasDisplayW) / 2,
+    panY: (containerHeight - canvasDisplayH) / 2,
+  };
+}
 
 function updateLayerSelection(layers: SvgLayer[], selectedId: string | null): SvgLayer[] {
   return layers.map((layer) => ({
@@ -43,6 +75,18 @@ export const useSvgLayerStore = create<SvgLayerStore>((set, get) => ({
   future: [],
   lastActionSummary: null,
   sameColorResult: null,
+  cleanOptions: { ...defaultCleanSvgOptions },
+  lastCleanResult: null,
+  resizeOptions: { ...defaultSvgResizeOptions },
+  resizeResult: null,
+  autoResizeOnUpload: true,
+  zoom: 1,
+  panX: 0,
+  panY: 0,
+  fitZoom: 1,
+  isExporting: false,
+  exportError: null,
+  exportSettings: { ...defaultExportSettings },
 
   uploadSvg: async (file: File) => {
     set({ isLoading: true, error: null });
@@ -64,7 +108,17 @@ export const useSvgLayerStore = create<SvgLayerStore>((set, get) => ({
 
   parseSvgText: (svgText: string, fileName: string, fileSize: number) => {
     try {
-      const doc = parseSvg(svgText);
+      let doc = parseSvg(svgText);
+
+      // Auto resize to 2500x2500 if enabled
+      let resizeResult = null;
+      const state = get();
+      if (state.autoResizeOnUpload) {
+        resizeResult = normalizeSvgToSize(doc, state.resizeOptions);
+        svgText = serializeSvg(doc);
+        doc = parseSvg(svgText);
+      }
+
       const layers = buildLayerTree(doc);
       const documentInfo = getSvgDocumentInfo(doc, fileName, fileSize);
 
@@ -80,6 +134,12 @@ export const useSvgLayerStore = create<SvgLayerStore>((set, get) => ({
         future: [],
         isLoading: false,
         error: null,
+        resizeResult,
+        // Reset viewport — will be recalculated by SvgPreview on next render
+        zoom: 1,
+        panX: 0,
+        panY: 0,
+        fitZoom: 1,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Gagal memproses file SVG.";
@@ -403,5 +463,212 @@ export const useSvgLayerStore = create<SvgLayerStore>((set, get) => ({
 
   clearSameColorResult: () => {
     set({ sameColorResult: null });
+  },
+
+  setCleanOptions: (options) => {
+    set((state) => ({
+      cleanOptions: { ...state.cleanOptions, ...options },
+    }));
+  },
+
+  resetCleanOptions: () => {
+    set({ cleanOptions: { ...defaultCleanSvgOptions } });
+  },
+
+  cleanSvg: () => {
+    const state = get();
+    if (!state.svgDocument) {
+      set({ lastActionSummary: "No SVG file loaded." });
+      return;
+    }
+
+    // save history before mutation
+    const svgTextBefore = serializeSvg(state.svgDocument);
+
+    const result = cleanSvgDocument(state.svgDocument, state.cleanOptions);
+
+    if (result.totalRemoved === 0) {
+      set({ lastActionSummary: "No removable elements found." });
+      return;
+    }
+
+    const { layers, svgText } = rebuildFromDoc(state.svgDocument);
+    const docInfo = state.documentInfo
+      ? getSvgDocumentInfo(state.svgDocument, state.documentInfo.fileName, state.documentInfo.fileSize)
+      : null;
+
+    set({
+      svgText,
+      layers,
+      documentInfo: docInfo,
+      selectedLayerId: null,
+      selectedLayerIds: [],
+      sameColorResult: null,
+      history: [...state.history, svgTextBefore],
+      future: [],
+      lastCleanResult: result,
+      lastActionSummary: `SVG cleaned successfully. ${result.totalRemoved} items removed. File size reduced by ${result.reducedPercentage}%.`,
+    });
+  },
+
+  setResizeOptions: (options) => {
+    set((state) => ({
+      resizeOptions: { ...state.resizeOptions, ...options },
+    }));
+  },
+
+  toggleAutoResizeOnUpload: (value) => {
+    set({ autoResizeOnUpload: value });
+  },
+
+  normalizeCurrentSvgTo2500: () => {
+    const state = get();
+    if (!state.svgDocument) {
+      set({ lastActionSummary: "No SVG file loaded." });
+      return;
+    }
+
+    const svgTextBefore = serializeSvg(state.svgDocument);
+
+    try {
+      const result = normalizeSvgToSize(state.svgDocument, state.resizeOptions);
+
+      if (!result.resized) {
+        set({ lastActionSummary: "SVG is already 2500x2500 px." });
+        return;
+      }
+
+      const newSvgText = serializeSvg(state.svgDocument);
+      const doc = parseSvg(newSvgText);
+      const { layers } = rebuildFromDoc(doc);
+      const docInfo = state.documentInfo
+        ? getSvgDocumentInfo(doc, state.documentInfo.fileName, state.documentInfo.fileSize)
+        : null;
+
+      set({
+        svgDocument: doc,
+        svgText: newSvgText,
+        layers,
+        documentInfo: docInfo,
+        resizeResult: result,
+        selectedLayerId: null,
+        selectedLayerIds: [],
+        history: [...state.history, svgTextBefore],
+        future: [],
+        lastActionSummary: "Canvas resized to 2500x2500 px.",
+      });
+    } catch {
+      set({ lastActionSummary: "Failed to resize SVG canvas." });
+    }
+  },
+
+  setZoom: (zoom) => {
+    set({ zoom: Math.max(0.05, Math.min(zoom, 8)) });
+  },
+
+  setPan: (x, y) => {
+    set({ panX: x, panY: y });
+  },
+
+  fitToScreen: (containerWidth, containerHeight) => {
+    const fitZoom = computeFitZoom(containerWidth, containerHeight);
+    const { panX, panY } = computeCenterPan(containerWidth, containerHeight, fitZoom);
+    set({ zoom: fitZoom, fitZoom, panX, panY });
+  },
+
+  resetPreviewViewport: (containerWidth, containerHeight) => {
+    const fitZoom = computeFitZoom(containerWidth, containerHeight);
+    const { panX, panY } = computeCenterPan(containerWidth, containerHeight, fitZoom);
+    set({ zoom: fitZoom, fitZoom, panX, panY });
+  },
+
+  setExportSettings: (settings) => {
+    set((state) => ({
+      exportSettings: { ...state.exportSettings, ...settings },
+    }));
+  },
+
+  exportCurrentSvg: async (format?: "svg" | "png" | "jpg" | "eps") => {
+    const state = get();
+    if (!state.svgDocument) {
+      set({ lastActionSummary: "No SVG file loaded." });
+      return;
+    }
+
+    const exportFormat = format || state.exportSettings.format;
+    const settings = { ...state.exportSettings, format: exportFormat };
+
+    set({ isExporting: true, exportError: null });
+
+    try {
+      const svgText = prepareSvgForExport(state.svgDocument, {
+        removeEditorData: settings.removeEditorData,
+        keepLayerIds: settings.keepLayerIds,
+      });
+
+      const baseName = state.documentInfo?.fileName || "svg-export";
+
+      switch (exportFormat) {
+        case "svg": {
+          const fileName = getCleanFileName(baseName, "svg");
+          exportSvgFile(svgText, fileName);
+          break;
+        }
+        case "png": {
+          const fileName = getCleanFileName(baseName, "png");
+          await exportSvgToPng(
+            svgText,
+            {
+              width: settings.width,
+              height: settings.height,
+              scale: settings.scale,
+              transparent: settings.transparent,
+            },
+            fileName,
+          );
+          break;
+        }
+        case "jpg": {
+          const fileName = getCleanFileName(baseName, "jpg");
+          await exportSvgToJpg(
+            svgText,
+            {
+              width: settings.width,
+              height: settings.height,
+              scale: settings.scale,
+              quality: settings.jpgQuality,
+              backgroundColor: settings.jpgBackgroundColor,
+            },
+            fileName,
+          );
+          break;
+        }
+        case "eps": {
+          const fileName = getCleanFileName(baseName, "eps");
+          const epsSvgText = prepareSvgForEpsExport(state.svgDocument, {
+            width: 2500,
+            height: 2500,
+            backgroundColor: "#FFFFFF",
+            addPageBounds: true,
+            removeEditorData: true,
+          });
+          const epsBlob = await exportSvgToEps(epsSvgText, fileName);
+          downloadBlob(epsBlob, fileName);
+          break;
+        }
+      }
+
+      set({
+        isExporting: false,
+        lastActionSummary: `${exportFormat.toUpperCase()} exported successfully.`,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Export failed.";
+      set({
+        isExporting: false,
+        exportError: message,
+        lastActionSummary: message,
+      });
+    }
   },
 }));

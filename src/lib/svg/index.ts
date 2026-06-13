@@ -11,3 +11,11 @@ export { deleteElementByLayerId, deleteElementsByLayerIds, collectChildIds } fro
 export type { DeleteResult } from "./deleteSvgElements";
 export { findElementsBySameFillColor, findElementsBySameStrokeColor, findElementsBySameFillAndStrokeColor, findElementsByColor } from "./selectSameColor";
 export type { SelectByColorOptions } from "./selectSameColor";
+export { cleanSvgDocument, optimizeSvgWhitespace } from "./cleanSvg";
+export { normalizeSvgToSize } from "./normalizeSvgSize";
+export { prepareSvgForExport } from "./prepareSvgForExport";
+export { prepareSvgForEpsExport } from "./prepareSvgForEpsExport";
+export { exportSvgFile } from "./exportSvg";
+export { exportSvgToPng } from "./exportPng";
+export { exportSvgToJpg } from "./exportJpg";
+export { exportSvgToEps } from "./exportEps";

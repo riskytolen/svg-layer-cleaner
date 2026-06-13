@@ -1,38 +1,9 @@
 "use client";
 
-import { useRef, useEffect, useCallback, useMemo } from "react";
+import { useRef, useEffect, useCallback, useState } from "react";
 import { useSvgLayerStore } from "@/store/svgLayerStore";
 
-function prepareSvgForPreview(svgText: string): string {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(svgText, "image/svg+xml");
-  const root = doc.documentElement;
-
-  if (!root || root.tagName.toLowerCase() !== "svg") return svgText;
-
-  const hasWidth = root.hasAttribute("width");
-  const hasHeight = root.hasAttribute("height");
-  const hasViewBox = root.hasAttribute("viewBox");
-
-  if (!hasWidth || !hasHeight) {
-    if (hasViewBox) {
-      const viewBox = root.getAttribute("viewBox") || "";
-      const parts = viewBox.split(/[\s,]+/).map(Number);
-      if (parts.length === 4 && parts.every((n) => !isNaN(n))) {
-        const [, , w, h] = parts;
-        root.setAttribute("width", String(w));
-        root.setAttribute("height", String(h));
-      }
-    }
-    if (!hasWidth) root.setAttribute("width", "100%");
-    if (!hasHeight) root.setAttribute("height", "100%");
-  }
-
-  root.removeAttribute("style");
-
-  const serializer = new XMLSerializer();
-  return serializer.serializeToString(root);
-}
+const SVG_CANVAS_SIZE = 2500;
 
 export function SvgPreview() {
   const svgText = useSvgLayerStore((s) => s.svgText);
@@ -40,15 +11,57 @@ export function SvgPreview() {
   const selectedLayerIds = useSvgLayerStore((s) => s.selectedLayerIds);
   const selectLayer = useSvgLayerStore((s) => s.selectLayer);
   const toggleLayerSelection = useSvgLayerStore((s) => s.toggleLayerSelection);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const zoom = useSvgLayerStore((s) => s.zoom);
+  const panX = useSvgLayerStore((s) => s.panX);
+  const panY = useSvgLayerStore((s) => s.panY);
+  const setPan = useSvgLayerStore((s) => s.setPan);
+  const setZoom = useSvgLayerStore((s) => s.setZoom);
+  const resetPreviewViewport = useSvgLayerStore((s) => s.resetPreviewViewport);
 
-  const processedSvg = useMemo(
-    () => (svgText ? prepareSvgForPreview(svgText) : null),
-    [svgText],
-  );
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const [isPanning, setIsPanning] = useState(false);
+  const panStartRef = useRef({ x: 0, y: 0, startPanX: 0, startPanY: 0, moved: false });
 
+  // Fit to screen on upload or svgText change
+  useEffect(() => {
+    if (!svgText || !viewportRef.current) return;
+    const raf = requestAnimationFrame(() => {
+      if (!viewportRef.current) return;
+      const rect = viewportRef.current.getBoundingClientRect();
+      resetPreviewViewport(rect.width, rect.height);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [svgText, resetPreviewViewport]);
+
+  // Apply selection highlights
+  useEffect(() => {
+    const container = viewportRef.current;
+    if (!container) return;
+
+    const svgEl = container.querySelector("svg");
+    if (!svgEl) return;
+
+    svgEl.querySelectorAll("[data-layer-id]").forEach((el) => {
+      el.classList.remove("svg-layer-selected", "svg-layer-multi-selected");
+    });
+
+    for (const id of selectedLayerIds) {
+      const el = svgEl.querySelector(`[data-layer-id="${id}"]`);
+      if (el) el.classList.add("svg-layer-multi-selected");
+    }
+
+    if (selectedLayerId) {
+      const el = svgEl.querySelector(`[data-layer-id="${selectedLayerId}"]`);
+      if (el) el.classList.add("svg-layer-selected");
+    }
+  }, [selectedLayerId, selectedLayerIds, svgText]);
+
+  // Handle SVG element click for layer selection
   const handleSvgClick = useCallback(
     (e: MouseEvent) => {
+      // Ignore if we were panning
+      if (panStartRef.current.moved) return;
+
       const target = e.target as Element;
       const layerId =
         target.getAttribute("data-layer-id") ||
@@ -65,60 +78,121 @@ export function SvgPreview() {
   );
 
   useEffect(() => {
-    const container = containerRef.current;
+    const container = viewportRef.current;
     if (!container) return;
-
     container.addEventListener("click", handleSvgClick);
     return () => container.removeEventListener("click", handleSvgClick);
-  }, [handleSvgClick, processedSvg]);
+  }, [handleSvgClick, svgText]);
 
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+  // Pan handlers
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      // Only pan with middle button or space+left (handled in keyboard)
+      // For simplicity: left click on viewport background pans
+      const target = e.target as Element;
+      // Don't pan if clicking on an SVG element with data-layer-id
+      if (target.closest("[data-layer-id]")) return;
 
-    const svgEl = container.querySelector("svg");
-    if (!svgEl) return;
+      panStartRef.current = {
+        x: e.clientX,
+        y: e.clientY,
+        startPanX: panX,
+        startPanY: panY,
+        moved: false,
+      };
+      setIsPanning(true);
+    },
+    [panX, panY],
+  );
 
-    // Clear all highlights
-    svgEl.querySelectorAll("[data-layer-id]").forEach((el) => {
-      el.classList.remove("svg-layer-selected", "svg-layer-multi-selected");
-    });
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      if (!isPanning) return;
 
-    // Apply multi-select highlights
-    for (const id of selectedLayerIds) {
-      const el = svgEl.querySelector(`[data-layer-id="${id}"]`);
-      if (el) {
-        el.classList.add("svg-layer-multi-selected");
+      const dx = e.clientX - panStartRef.current.x;
+      const dy = e.clientY - panStartRef.current.y;
+
+      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+        panStartRef.current.moved = true;
       }
-    }
 
-    // Apply single-select highlight (overrides multi)
-    if (selectedLayerId) {
-      const el = svgEl.querySelector(
-        `[data-layer-id="${selectedLayerId}"]`,
+      setPan(
+        panStartRef.current.startPanX + dx,
+        panStartRef.current.startPanY + dy,
       );
-      if (el) {
-        el.classList.add("svg-layer-selected");
-        el.scrollIntoView({ block: "nearest", inline: "nearest" });
-      }
-    }
-  }, [selectedLayerId, selectedLayerIds, processedSvg]);
+    },
+    [isPanning, setPan],
+  );
 
-  if (!processedSvg) return null;
+  const handleMouseUp = useCallback(() => {
+    setIsPanning(false);
+  }, []);
+
+  // Attach wheel listener with passive: false for preventDefault
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+    const handler = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      const currentZoom = useSvgLayerStore.getState().zoom;
+      const currentPanX = useSvgLayerStore.getState().panX;
+      const currentPanY = useSvgLayerStore.getState().panY;
+      const newZoom = Math.max(0.05, Math.min(currentZoom * delta, 8));
+
+      const rect = el.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      const scale = newZoom / currentZoom;
+      const newPanX = mouseX - (mouseX - currentPanX) * scale;
+      const newPanY = mouseY - (mouseY - currentPanY) * scale;
+
+      setZoom(newZoom);
+      setPan(newPanX, newPanY);
+    };
+    el.addEventListener("wheel", handler, { passive: false });
+    return () => el.removeEventListener("wheel", handler);
+  }, [setZoom, setPan]);
+
+  if (!svgText) return null;
 
   return (
     <div
-      ref={containerRef}
-      className="w-full h-full overflow-auto"
+      ref={viewportRef}
+      className="w-full h-full overflow-hidden relative select-none"
       style={{
         background:
           "repeating-conic-gradient(#e5e7eb 0% 25%, #fff 0% 50%) 50% / 20px 20px",
+        cursor: isPanning ? "grabbing" : "grab",
       }}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
     >
+      {/* Canvas layer with transform */}
       <div
-        className="min-w-full min-h-full flex items-center justify-center p-4"
-        dangerouslySetInnerHTML={{ __html: processedSvg }}
-      />
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          transformOrigin: "top left",
+          transform: `translate(${panX}px, ${panY}px) scale(${zoom})`,
+          willChange: "transform",
+        }}
+      >
+        {/* SVG canvas at actual 2500x2500 size */}
+        <div
+          style={{
+            width: SVG_CANVAS_SIZE,
+            height: SVG_CANVAS_SIZE,
+            background: "white",
+            boxShadow: "0 2px 20px rgba(0,0,0,0.15)",
+          }}
+          dangerouslySetInnerHTML={{ __html: svgText }}
+        />
+      </div>
     </div>
   );
 }

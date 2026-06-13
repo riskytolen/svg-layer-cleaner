@@ -3,6 +3,7 @@ export type DeleteResult = {
   skippedCount: number;
   skippedRootCount: number;
   skippedLockedCount: number;
+  skippedSystemLayerCount: number;
   deletedIds: string[];
 };
 
@@ -12,6 +13,10 @@ function isRootElement(doc: Document, el: Element): boolean {
 
 function isLocked(el: Element): boolean {
   return el.getAttribute("data-locked") === "true";
+}
+
+function isSystemLayer(el: Element): boolean {
+  return el.getAttribute("data-system-layer") === "artwork-transform";
 }
 
 function isAlreadyRemoved(el: Element): boolean {
@@ -44,6 +49,10 @@ export function deleteElementByLayerId(
     return { deleted: false, childCount: 0, wasRoot: true, wasLocked: false };
   }
 
+  if (isSystemLayer(el)) {
+    return { deleted: false, childCount: 0, wasRoot: false, wasLocked: false };
+  }
+
   if (isLocked(el)) {
     return { deleted: false, childCount: 0, wasRoot: false, wasLocked: true };
   }
@@ -63,6 +72,7 @@ export function deleteElementsByLayerIds(
     skippedCount: 0,
     skippedRootCount: 0,
     skippedLockedCount: 0,
+    skippedSystemLayerCount: 0,
     deletedIds: [],
   };
 
@@ -81,6 +91,11 @@ export function deleteElementsByLayerIds(
 
     if (isRootElement(doc, el)) {
       result.skippedRootCount++;
+      continue;
+    }
+
+    if (isSystemLayer(el)) {
+      result.skippedSystemLayerCount++;
       continue;
     }
 

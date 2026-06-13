@@ -8,11 +8,15 @@ import {
   Trash2,
   Download,
   Pipette,
+  Sparkles,
+  Zap,
+  Maximize,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useSvgLayerStore } from "@/store/svgLayerStore";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
+import { ExportDialog } from "./ExportDialog";
 
 export function Toolbar() {
   const svgText = useSvgLayerStore((s) => s.svgText);
@@ -28,8 +32,13 @@ export function Toolbar() {
   const selectSameFillColor = useSvgLayerStore((s) => s.selectSameFillColor);
   const selectSameStrokeColor = useSvgLayerStore((s) => s.selectSameStrokeColor);
   const selectSameFillAndStrokeColor = useSvgLayerStore((s) => s.selectSameFillAndStrokeColor);
+  const cleanSvg = useSvgLayerStore((s) => s.cleanSvg);
+  const resetCleanOptions = useSvgLayerStore((s) => s.resetCleanOptions);
+  const normalizeCurrentSvgTo2500 = useSvgLayerStore((s) => s.normalizeCurrentSvgTo2500);
+  const isExporting = useSvgLayerStore((s) => s.isExporting);
   const [confirmMultiDelete, setConfirmMultiDelete] = useState(false);
   const [showColorMenu, setShowColorMenu] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
   const colorMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -151,6 +160,50 @@ export function Toolbar() {
 
               <div className="w-px h-5 bg-border mx-1" />
 
+              {/* Clean SVG */}
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!svgText}
+                onClick={cleanSvg}
+                className="h-7"
+                title="Clean SVG with default options"
+              >
+                <Zap className="w-3.5 h-3.5 mr-1" />
+                Quick Clean
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!svgText}
+                onClick={() => {
+                  const panel = document.getElementById("clean-svg-panel-trigger");
+                  if (panel) panel.click();
+                }}
+                className="h-7"
+                title="Open Clean SVG options"
+              >
+                <Sparkles className="w-3.5 h-3.5 mr-1" />
+                Clean SVG
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!svgText}
+                onClick={() => {
+                  const panel = document.getElementById("resize-settings-panel-trigger");
+                  if (panel) panel.click();
+                }}
+                className="h-7"
+                title="Open Resize Settings"
+              >
+                <Maximize className="w-3.5 h-3.5 mr-1" />
+                Resize
+              </Button>
+
+              <div className="w-px h-5 bg-border mx-1" />
+
               {/* Delete selected */}
               <Button
                 variant="destructive"
@@ -199,8 +252,14 @@ export function Toolbar() {
             Upload SVG
           </Button>
 
-          {/* Placeholder buttons */}
-          <Button variant="outline" size="sm" disabled title="Coming soon" className="h-7">
+          {/* Export */}
+          <Button
+            variant="default"
+            size="sm"
+            className="h-7"
+            disabled={!svgText || isExporting}
+            onClick={() => setShowExportDialog(true)}
+          >
             <Download className="w-3.5 h-3.5 mr-1" />
             Export
           </Button>
@@ -220,6 +279,11 @@ export function Toolbar() {
           onCancel={() => setConfirmMultiDelete(false)}
         />
       )}
+
+      <ExportDialog
+        open={showExportDialog}
+        onClose={() => setShowExportDialog(false)}
+      />
     </>
   );
 }
