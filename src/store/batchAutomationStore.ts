@@ -12,6 +12,8 @@ import {
 import { scanSvgFolder, ScannedFile } from "@/lib/batch/scanSvgFolder";
 import { processSingleSvgFile } from "@/lib/batch/processSingleSvgFile";
 
+export type ResultFilter = "all" | "success" | "failed" | "skipped" | "processing";
+
 type BatchAutomationStore = {
   options: BatchAutomationOptions;
   files: ScannedFile[];
@@ -28,9 +30,19 @@ type BatchAutomationStore = {
   currentFileName: string;
   totalFiles: number;
 
+  // UI state
+  resultFilter: ResultFilter;
+  resultSearchQuery: string;
+  rowsPerPage: number;
+  currentPage: number;
+  hideSuccessful: boolean;
+  autoScrollToCurrent: boolean;
+  isLogExpanded: boolean;
+  expandedRowId: string | null;
+
   // Actions
-  selectInputFolder: (handle: FileSystemDirectoryHandle) => void;
-  selectOutputFolder: (handle: FileSystemDirectoryHandle) => void;
+  selectInputFolder: (handle: any) => void;
+  selectOutputFolder: (handle: any) => void;
   scanInputFolder: () => Promise<void>;
   setExportFormats: (formats: ExportFormat[]) => void;
   updateOptions: (partial: Partial<BatchAutomationOptions>) => void;
@@ -42,6 +54,14 @@ type BatchAutomationStore = {
   clearResults: () => void;
   addLog: (entry: Omit<BatchLogEntry, "timestamp">) => void;
   runBatch: (dryRun: boolean) => Promise<void>;
+  setResultFilter: (filter: ResultFilter) => void;
+  setResultSearchQuery: (query: string) => void;
+  setRowsPerPage: (value: number) => void;
+  setCurrentPage: (page: number) => void;
+  toggleHideSuccessful: (value?: boolean) => void;
+  toggleAutoScrollToCurrent: (value?: boolean) => void;
+  toggleLogExpanded: () => void;
+  setExpandedRowId: (id: string | null) => void;
 };
 
 const initialSummary: BatchSummary = {
@@ -68,6 +88,15 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
   currentFileIndex: 0,
   currentFileName: "",
   totalFiles: 0,
+
+  resultFilter: "all",
+  resultSearchQuery: "",
+  rowsPerPage: 50,
+  currentPage: 1,
+  hideSuccessful: false,
+  autoScrollToCurrent: true,
+  isLogExpanded: false,
+  expandedRowId: null,
 
   selectInputFolder: (handle) => {
     set((state) => ({
@@ -140,6 +169,7 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
       currentFileIndex: 0,
       results: [],
       summary: { ...initialSummary, totalFiles: state.files.length },
+      isLogExpanded: false,
     });
 
     await get().runBatch(true);
@@ -163,6 +193,7 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
       currentFileIndex: 0,
       results: [],
       summary: { ...initialSummary, totalFiles: state.files.length },
+      isLogExpanded: false,
     });
 
     await get().runBatch(false);
@@ -190,6 +221,10 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
       logs: [],
       currentFileIndex: 0,
       currentFileName: "",
+      resultFilter: "all",
+      resultSearchQuery: "",
+      currentPage: 1,
+      expandedRowId: null,
     });
   },
 
@@ -205,15 +240,12 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
     const totalFiles = files.length;
     let summary: BatchSummary = { ...initialSummary, totalFiles };
 
-    // Update options with dry run
     const runOptions = { ...options, dryRun };
 
     for (let i = 0; i < totalFiles; i++) {
-      // Check cancel
       const current = get();
       if (current.isCancelled) break;
 
-      // Check pause
       while (current.isPaused && !current.isCancelled) {
         await new Promise((r) => setTimeout(r, 200));
         const s = get();
@@ -230,7 +262,6 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
         get().addLog,
       );
 
-      // Update summary
       summary.processedFiles++;
       if (result.status === "success") summary.successFiles++;
       else if (result.status === "failed") summary.failedFiles++;
@@ -242,7 +273,6 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
         summary: { ...summary },
       }));
 
-      // Small delay for EPS to not overload server
       if (options.exportFormats.includes("eps") && !dryRun) {
         await new Promise((r) => setTimeout(r, 100));
       }
@@ -252,6 +282,7 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
       isRunning: false,
       isPaused: false,
       isCancelled: false,
+      isLogExpanded: summary.failedFiles > 0,
     });
 
     get().addLog({
@@ -259,4 +290,13 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
       message: `Batch ${dryRun ? "dry run" : "processing"} complete. ${summary.successFiles} success, ${summary.failedFiles} failed, ${summary.skippedFiles} skipped.`,
     });
   },
+
+  setResultFilter: (filter) => set({ resultFilter: filter, currentPage: 1 }),
+  setResultSearchQuery: (query) => set({ resultSearchQuery: query, currentPage: 1 }),
+  setRowsPerPage: (value) => set({ rowsPerPage: value, currentPage: 1 }),
+  setCurrentPage: (page) => set({ currentPage: page }),
+  toggleHideSuccessful: (value) => set((s) => ({ hideSuccessful: value ?? !s.hideSuccessful, currentPage: 1 })),
+  toggleAutoScrollToCurrent: (value) => set((s) => ({ autoScrollToCurrent: value ?? !s.autoScrollToCurrent })),
+  toggleLogExpanded: () => set((s) => ({ isLogExpanded: !s.isLogExpanded })),
+  setExpandedRowId: (id) => set((s) => ({ expandedRowId: s.expandedRowId === id ? null : id })),
 }));
