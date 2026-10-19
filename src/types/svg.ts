@@ -173,6 +173,14 @@ export const defaultExportSettings: ExportSettings = {
   epsExportMode: "hybrid",
 };
 
+export type BgRemovalSummary = {
+  bgColor: string | null;
+  deleted: number;
+  ambiguous: number;
+  preserved: number;
+  removedColors: Record<string, number>;
+};
+
 export type SvgLayerStore = {
   svgText: string | null;
   svgDocument: Document | null;
@@ -215,6 +223,8 @@ export type SvgLayerStore = {
   setCleanOptions: (options: Partial<CleanSvgOptions>) => void;
   resetCleanOptions: () => void;
   cleanSvg: () => void;
+  removeWhiteBackground: (mode?: "safe" | "balanced" | "aggressive") => void;
+  lastBgRemoval: BgRemovalSummary | null;
   setResizeOptions: (options: Partial<SvgResizeOptions>) => void;
   toggleAutoResizeOnUpload: (value: boolean) => void;
   normalizeCurrentSvgTo2500: () => void;

@@ -18,6 +18,7 @@ import {
   prepareSvgForExport,
   prepareSvgForEpsExport,
   quickCleanSvgWithDefaultOptions,
+  removeWhiteBackground,
   exportSvgFile,
   exportSvgToPng,
   exportSvgToJpg,
@@ -78,6 +79,7 @@ export const useSvgLayerStore = create<SvgLayerStore>((set, get) => ({
   sameColorResult: null,
   cleanOptions: { ...defaultCleanSvgOptions },
   lastCleanResult: null,
+  lastBgRemoval: null,
   resizeOptions: { ...defaultSvgResizeOptions },
   resizeResult: null,
   autoResizeOnUpload: true,
@@ -131,6 +133,7 @@ export const useSvgLayerStore = create<SvgLayerStore>((set, get) => ({
         selectedLayerIds: [],
         documentInfo,
         sameColorResult: null,
+        lastBgRemoval: null,
         history: [],
         future: [],
         isLoading: false,
@@ -514,6 +517,64 @@ export const useSvgLayerStore = create<SvgLayerStore>((set, get) => ({
     });
   },
 
+  removeWhiteBackground: (mode = "balanced") => {
+    const state = get();
+    if (!state.svgDocument) {
+      set({ lastActionSummary: "No SVG file loaded." });
+      return;
+    }
+
+    const svgTextBefore = serializeSvg(state.svgDocument);
+
+    const bg = removeWhiteBackground(state.svgDocument, {
+      mode,
+      whiteSensitivity: 28,
+      colorTolerance: 28,
+      onlyDeleteIfWhiteLike: true,
+    });
+
+    if (bg.skipped) {
+      set({
+        lastBgRemoval: null,
+        lastActionSummary: bg.warning || "No white background found.",
+      });
+      return;
+    }
+
+    const { layers, svgText } = rebuildFromDoc(state.svgDocument);
+    const docInfo = state.documentInfo
+      ? getSvgDocumentInfo(state.svgDocument, state.documentInfo.fileName, state.documentInfo.fileSize)
+      : null;
+
+    const removedSummary = Object.entries(bg.removedColors)
+      .map(([c, n]) => `${c} x${n}`)
+      .join(", ");
+
+    set({
+      svgDocument: state.svgDocument,
+      svgText,
+      layers,
+      documentInfo: docInfo,
+      selectedLayerId: null,
+      selectedLayerIds: [],
+      sameColorResult: null,
+      history: [...state.history, svgTextBefore],
+      future: [],
+      lastBgRemoval: {
+        bgColor: bg.normalizedFill,
+        deleted: bg.deletedCount,
+        ambiguous: bg.ambiguousCount,
+        preserved: bg.preservedNearWhite,
+        removedColors: bg.removedColors,
+      },
+      lastActionSummary:
+        `Background removed: ${bg.deletedCount} elements (${bg.normalizedFill}` +
+        `${removedSummary ? `; ${removedSummary}` : ""}). ` +
+        `${bg.ambiguousCount > 0 ? `${bg.ambiguousCount} ambiguous preserved. ` : ""}` +
+        `${bg.preservedNearWhite > 0 ? `${bg.preservedNearWhite} foreground whites kept.` : ""}`,
+    });
+  },
+
   setResizeOptions: (options) => {
     set((state) => ({
       resizeOptions: { ...state.resizeOptions, ...options },
@@ -626,6 +687,9 @@ export const useSvgLayerStore = create<SvgLayerStore>((set, get) => ({
               height: settings.height,
               scale: settings.scale,
               transparent: settings.transparent,
+              cleanWhiteResidual: settings.transparent,
+              residualBackgroundColor: state.lastBgRemoval?.bgColor || "#FFFFFF",
+              residualTolerance: 24,
             },
             fileName,
           );

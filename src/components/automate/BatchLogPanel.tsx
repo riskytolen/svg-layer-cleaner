@@ -2,17 +2,18 @@
 
 import { useBatchAutomationStore } from "@/store/batchAutomationStore";
 import { useRef, useEffect, useState } from "react";
-import { ChevronDown, ChevronUp, Copy, Trash2 } from "lucide-react";
+import { ChevronDown, Copy, Trash2, Terminal, Check } from "lucide-react";
+import { cn } from "@/lib/utils/cn";
 
 const LEVEL_COLORS: Record<string, string> = {
-  info: "text-slate-500",
-  process: "text-blue-600",
-  color: "text-purple-600",
-  delete: "text-orange-600",
-  export: "text-cyan-600",
-  success: "text-green-600",
-  warning: "text-amber-600",
-  error: "text-red-600",
+  info: "text-slate-400",
+  process: "text-blue-400",
+  color: "text-purple-400",
+  delete: "text-orange-400",
+  export: "text-cyan-400",
+  success: "text-emerald-400",
+  warning: "text-amber-400",
+  error: "text-red-400",
 };
 
 const LEVEL_PREFIX: Record<string, string> = {
@@ -58,56 +59,60 @@ export function BatchLogPanel() {
   const errorCount = logs.filter((l) => l.level === "error").length;
 
   return (
-    <div className="rounded-lg border border-border bg-card overflow-hidden">
-      {/* Header */}
+    <section className="rounded-2xl border border-border bg-card shadow-[0_1px_2px_rgba(16,24,40,0.05)] overflow-hidden">
       <button
         onClick={toggleLogExpanded}
-        className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-muted/50 transition-colors"
+        className="w-full flex items-center gap-2.5 px-5 py-3.5 hover:bg-muted/50 transition-colors cursor-pointer"
       >
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Processing Log
+        <span className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center shrink-0">
+          <Terminal className="w-4 h-4" strokeWidth={2} />
+        </span>
+        <span className="text-left">
+          <span className="block text-sm font-bold tracking-tight leading-tight">Processing Log</span>
+          <span className="block text-[11px] text-muted-foreground tabular-nums">
+            {logs.length} entries
+            {errorCount > 0 && ` · ${errorCount} errors`}
           </span>
-          <span className="text-[10px] text-muted-foreground">({logs.length})</span>
-          {errorCount > 0 && (
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700">
-              {errorCount} errors
-            </span>
-          )}
-        </div>
-        {isLogExpanded ? (
-          <ChevronUp className="w-4 h-4 text-muted-foreground" />
-        ) : (
-          <ChevronDown className="w-4 h-4 text-muted-foreground" />
+        </span>
+        {errorCount > 0 && (
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-50 border border-red-200 text-red-700">
+            {errorCount} errors
+          </span>
         )}
+        <span className="ml-auto flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={copyLog}
+            onKeyDown={(e) => e.key === "Enter" && copyLog()}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+          >
+            {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+            {copied ? "Copied" : "Copy"}
+          </span>
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={clearLogs}
+            onKeyDown={(e) => e.key === "Enter" && clearLogs()}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-muted-foreground hover:bg-red-50 hover:text-red-600 transition-colors cursor-pointer"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Clear
+          </span>
+        </span>
+        <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform shrink-0", isLogExpanded && "rotate-180")} />
       </button>
 
-      {/* Content */}
       {isLogExpanded && (
-        <div className="border-t border-border">
-          <div className="flex items-center gap-1 px-3 py-1.5 border-b border-border bg-slate-50">
-            <button
-              onClick={copyLog}
-              className="flex items-center gap-1 px-2 py-1 rounded text-[10px] text-muted-foreground hover:bg-muted transition-colors"
-            >
-              <Copy className="w-3 h-3" />
-              {copied ? "Copied!" : "Copy Log"}
-            </button>
-            <button
-              onClick={clearLogs}
-              className="flex items-center gap-1 px-2 py-1 rounded text-[10px] text-muted-foreground hover:bg-muted transition-colors"
-            >
-              <Trash2 className="w-3 h-3" />
-              Clear
-            </button>
-          </div>
+        <div className="border-t border-border px-4 pb-4 pt-3 bg-muted/40">
           <div
             ref={scrollRef}
-            className="max-h-[300px] overflow-auto bg-slate-950 p-3 font-mono text-[11px] leading-relaxed"
+            className="max-h-[300px] overflow-auto bg-slate-950 rounded-xl p-4 font-mono text-[11px] leading-relaxed shadow-inner"
           >
             {logs.map((log, i) => (
-              <div key={i} className={LEVEL_COLORS[log.level] || "text-slate-400"}>
-                <span className="text-slate-600">
+              <div key={i} className={cn("whitespace-pre-wrap break-all", LEVEL_COLORS[log.level] || "text-slate-400")}>
+                <span className="text-slate-600 tabular-nums">
                   {new Date(log.timestamp).toLocaleTimeString()}
                 </span>{" "}
                 <span className="font-bold">{LEVEL_PREFIX[log.level] || "[LOG]"}</span>{" "}
@@ -117,6 +122,6 @@ export function BatchLogPanel() {
           </div>
         </div>
       )}
-    </div>
+    </section>
   );
 }

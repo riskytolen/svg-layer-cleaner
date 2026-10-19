@@ -1,4 +1,5 @@
 import { downloadBlob } from "@/lib/utils/downloadFile";
+import { cleanupPngWhiteResidual } from "./pngResidualCleanup";
 
 export async function exportSvgToPng(
   svgText: string,
@@ -7,6 +8,9 @@ export async function exportSvgToPng(
     height: number;
     scale: number;
     transparent: boolean;
+    cleanWhiteResidual?: boolean;
+    residualBackgroundColor?: string | null;
+    residualTolerance?: number;
   },
   fileName: string,
 ): Promise<void> {
@@ -39,6 +43,19 @@ export async function exportSvgToPng(
 
     // Draw SVG
     ctx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
+
+    // Best-effort edge-connected white residual cleanup for transparent output.
+    if (transparent && options.cleanWhiteResidual !== false) {
+      try {
+        cleanupPngWhiteResidual(canvas, {
+          backgroundColor: options.residualBackgroundColor || "#FFFFFF",
+          tolerance: options.residualTolerance ?? 24,
+          haloRadius: 1,
+        });
+      } catch {
+        // Never fail export because of cleanup.
+      }
+    }
 
     // Convert to PNG blob
     const pngBlob = await canvasToBlob(canvas, "image/png");

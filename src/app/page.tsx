@@ -1,7 +1,5 @@
-"use client";
-
-import { ModeSelectionDashboard } from "@/components/dashboard/ModeSelectionDashboard";
+import { redirect } from "next/navigation";
 
 export default function HomePage() {
-  return <ModeSelectionDashboard />;
+  redirect("/automate");
 }

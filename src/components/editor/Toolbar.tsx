@@ -11,6 +11,7 @@ import {
   Sparkles,
   Zap,
   Maximize,
+  Eraser,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +34,7 @@ export function Toolbar() {
   const selectSameStrokeColor = useSvgLayerStore((s) => s.selectSameStrokeColor);
   const selectSameFillAndStrokeColor = useSvgLayerStore((s) => s.selectSameFillAndStrokeColor);
   const cleanSvg = useSvgLayerStore((s) => s.cleanSvg);
+  const removeWhiteBackground = useSvgLayerStore((s) => s.removeWhiteBackground);
   const resetCleanOptions = useSvgLayerStore((s) => s.resetCleanOptions);
   const normalizeCurrentSvgTo2500 = useSvgLayerStore((s) => s.normalizeCurrentSvgTo2500);
   const isExporting = useSvgLayerStore((s) => s.isExporting);
@@ -171,6 +173,17 @@ export function Toolbar() {
               >
                 <Zap className="w-3.5 h-3.5 mr-1" />
                 Quick Clean
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!svgText}
+                onClick={() => removeWhiteBackground("balanced")}
+                className="h-7"
+                title="Remove white background (balanced mode)"
+              >
+                <Eraser className="w-3.5 h-3.5 mr-1" />
+                Remove BG
               </Button>
               <Button
                 variant="outline"

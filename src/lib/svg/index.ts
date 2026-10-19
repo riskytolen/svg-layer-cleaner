@@ -11,12 +11,27 @@ export { deleteElementByLayerId, deleteElementsByLayerIds, collectChildIds } fro
 export type { DeleteResult } from "./deleteSvgElements";
 export { findElementsBySameFillColor, findElementsBySameStrokeColor, findElementsBySameFillAndStrokeColor, findElementsByColor } from "./selectSameColor";
 export type { SelectByColorOptions } from "./selectSameColor";
+export { findElementsByNearColor, getReviewLayerColors } from "./findElementsByNearColor";
+export type { NearColorMode, FindNearColorOptions } from "./findElementsByNearColor";
 export { cleanSvgDocument, optimizeSvgWhitespace } from "./cleanSvg";
 export { quickCleanSvg } from "./quickCleanSvg";
 export { quickCleanSvgWithDefaultOptions, compareQuickCleanOutputs, getTopLevelVisualGroups } from "./quickCleanPipeline";
 export { DEFAULT_QUICK_CLEAN_OPTIONS } from "./cleanDefaults";
 export { findFirstPathInGroup, findFirstProcessablePathAfterClean } from "./findFirstPathInGroup";
 export { removeSameFillAsFirstPath, isWhiteLikeColor } from "./removeSameFillAsFirstPath";
+export { removeWhiteBackground } from "./removeWhiteBackground";
+export type { RemoveWhiteBackgroundOptions, RemoveWhiteBackgroundResult } from "./removeWhiteBackground";
+export {
+  detectMainBackground,
+  detectNearWhiteBackgroundCandidates,
+  estimateElementBBox,
+  parseViewBoxRect,
+  getVisualElements,
+  defaultDetectionOptions,
+} from "./backgroundDetection";
+export type { WhiteBackgroundMode, BackgroundDetectionOptions } from "./backgroundDetection";
+export { cleanupPngWhiteResidual } from "./pngResidualCleanup";
+export type { PngResidualOptions, PngResidualResult } from "./pngResidualCleanup";
 export { resolveElementFill, extractCssFillRules, isExcludedElement, isElementVisible, debugFirstPaths } from "./resolveElementFill";
 export { normalizeSvgToSize } from "./normalizeSvgSize";
 export { prepareSvgForExport } from "./prepareSvgForExport";

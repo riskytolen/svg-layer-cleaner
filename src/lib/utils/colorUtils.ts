@@ -136,3 +136,52 @@ export function compareColors(colorA: string | null, colorB: string | null): boo
   if (colorA === null || colorB === null) return false;
   return normalizeColor(colorA) === normalizeColor(colorB);
 }
+
+export type RgbColor = { r: number; g: number; b: number };
+
+/** Parse any supported color string into RGB channels. Returns null for none/transparent/unparsable. */
+export function parseHexColor(color: string | null | undefined): RgbColor | null {
+  const normalized = normalizeColor(color);
+  if (!normalized) return null;
+  const h = normalized.replace("#", "");
+  if (!/^[0-9A-F]{6}$/.test(h)) return null;
+  return {
+    r: parseInt(h.slice(0, 2), 16),
+    g: parseInt(h.slice(2, 4), 16),
+    b: parseInt(h.slice(4, 6), 16),
+  };
+}
+
+/** Euclidean distance in RGB space (0 = identical, max ~441.7). */
+export function colorDistance(colorA: string | null | undefined, colorB: string | null | undefined): number | null {
+  const a = parseHexColor(colorA);
+  const b = parseHexColor(colorB);
+  if (!a || !b) return null;
+  const dr = a.r - b.r;
+  const dg = a.g - b.g;
+  const db = a.b - b.b;
+  return Math.sqrt(dr * dr + dg * dg + db * db);
+}
+
+/** True when two colors are within `tolerance` (RGB Euclidean distance). */
+export function isNearColor(
+  colorA: string | null | undefined,
+  colorB: string | null | undefined,
+  tolerance: number,
+): boolean {
+  const d = colorDistance(colorA, colorB);
+  if (d === null) return false;
+  return d <= tolerance;
+}
+
+/**
+ * True when the color is near-white per-channel:
+ * every channel >= 255 - tolerance.
+ * Used as a conservative gate for "is this a background candidate at all".
+ */
+export function isNearWhite(color: string | null | undefined, tolerance: number): boolean {
+  const rgb = parseHexColor(color);
+  if (!rgb) return false;
+  const min = 255 - tolerance;
+  return rgb.r >= min && rgb.g >= min && rgb.b >= min;
+}
