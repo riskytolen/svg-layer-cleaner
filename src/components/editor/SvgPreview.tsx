@@ -68,7 +68,7 @@ export function SvgPreview() {
         target.closest("[data-layer-id]")?.getAttribute("data-layer-id");
       if (!layerId) return;
 
-      if (e.ctrlKey || e.metaKey) {
+      if (e.ctrlKey || e.metaKey || e.shiftKey) {
         toggleLayerSelection(layerId);
       } else {
         selectLayer(layerId);

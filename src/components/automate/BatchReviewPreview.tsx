@@ -22,6 +22,8 @@ export function BatchReviewPreview() {
   const reviewSelectedLayerIds = useBatchAutomationStore((s) => s.reviewSelectedLayerIds);
   const selectReviewLayer = useBatchAutomationStore((s) => s.selectReviewLayer);
   const toggleReviewLayer = useBatchAutomationStore((s) => s.toggleReviewLayer);
+  const deselectReviewLayer = useBatchAutomationStore((s) => s.deselectReviewLayer);
+  const reviewSelectionMode = useBatchAutomationStore((s) => s.reviewSelectionMode);
   const reviewCanvas = useBatchAutomationStore((s) => s.options.reviewCanvas);
   const updateOptions = useBatchAutomationStore((s) => s.updateOptions);
 
@@ -48,6 +50,7 @@ export function BatchReviewPreview() {
     startPanY: 0,
     moved: false,
     downLayerId: null as string | null,
+    button: 0,
   });
 
   const applyTransform = useCallback(() => {
@@ -99,8 +102,8 @@ export function BatchReviewPreview() {
 
   const setViewportCursor = useCallback((grabbing: boolean) => {
     const el = viewportRef.current;
-    if (el) el.style.cursor = grabbing ? "grabbing" : "grab";
-  }, []);
+    if (el) el.style.cursor = grabbing ? "grabbing" : reviewSelectionMode === "subtract" ? "crosshair" : "grab";
+  }, [reviewSelectionMode]);
 
   // Fit only when the active asset changes, never on manual SVG edits.
   useEffect(() => {
@@ -180,6 +183,7 @@ export function BatchReviewPreview() {
         startPanY: panRef.current.y,
         moved: false,
         downLayerId,
+        button: e.button,
       };
       setViewportCursor(true);
       // NOTE: capture is deferred until the pointer moves past the click
@@ -224,7 +228,7 @@ export function BatchReviewPreview() {
         // ignore
       }
       // Treat as click/select when the pointer barely moved.
-      if (!drag.moved) {
+      if (!drag.moved && drag.button === 0 && e.type !== "pointercancel") {
         let layerId = drag.downLayerId;
         if (!layerId && typeof document !== "undefined" && typeof document.elementFromPoint === "function") {
           try {
@@ -236,11 +240,12 @@ export function BatchReviewPreview() {
         }
         if (!layerId) layerId = getLayerIdFromTarget(e.target);
         if (!layerId) return;
-        if (e.ctrlKey || e.metaKey) toggleReviewLayer(layerId);
+        if (reviewSelectionMode === "subtract") deselectReviewLayer(layerId);
+        else if (e.ctrlKey || e.metaKey || e.shiftKey) toggleReviewLayer(layerId);
         else selectReviewLayer(layerId);
       }
     },
-    [getLayerIdFromTarget, selectReviewLayer, setViewportCursor, toggleReviewLayer],
+    [getLayerIdFromTarget, selectReviewLayer, setViewportCursor, toggleReviewLayer, deselectReviewLayer, reviewSelectionMode],
   );
 
   useEffect(() => {
@@ -368,7 +373,7 @@ export function BatchReviewPreview() {
       <div
         ref={viewportRef}
         className="relative flex-1 min-h-[420px] overflow-hidden select-none"
-        style={{ ...CANVAS_BG[reviewCanvas], cursor: "grab", touchAction: "none" }}
+        style={{ ...CANVAS_BG[reviewCanvas], cursor: reviewSelectionMode === "subtract" ? "crosshair" : "grab", touchAction: "none" }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={endPointerDrag}
@@ -412,8 +417,10 @@ export function BatchReviewPreview() {
 
         {/* Hint */}
         {svgText && (
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-black/60 text-[11px] text-white/90 whitespace-nowrap pointer-events-none">
-            Click to select · Ctrl+click multi-select · drag anywhere to pan · scroll to zoom
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 max-w-[calc(100%-24px)] px-3 py-1.5 rounded-full bg-black/60 text-[11px] text-white/90 text-center pointer-events-none">
+            {reviewSelectionMode === "subtract"
+              ? "Click selected objects to deselect · other selections are kept · drag to pan"
+              : "Click to select · Ctrl/Cmd or Shift+click to add/remove · drag to pan · scroll to zoom"}
           </div>
         )}
       </div>

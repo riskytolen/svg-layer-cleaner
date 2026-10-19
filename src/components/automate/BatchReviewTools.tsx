@@ -14,6 +14,8 @@ import {
   RotateCcw,
   Droplet,
   Brush,
+  ListMinus,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
@@ -42,6 +44,9 @@ export function BatchReviewTools() {
   const activeReviewId = useBatchAutomationStore((s) => s.activeReviewId);
   const reviewSelectedLayerId = useBatchAutomationStore((s) => s.reviewSelectedLayerId);
   const reviewSelectedLayerIds = useBatchAutomationStore((s) => s.reviewSelectedLayerIds);
+  const reviewSelectionMode = useBatchAutomationStore((s) => s.reviewSelectionMode);
+  const setReviewSelectionMode = useBatchAutomationStore((s) => s.setReviewSelectionMode);
+  const clearReviewSelection = useBatchAutomationStore((s) => s.clearReviewSelection);
   const reviewColorTolerance = useBatchAutomationStore((s) => s.options.reviewColorTolerance);
   const reviewLastAction = useBatchAutomationStore((s) => s.reviewLastAction);
   const selectSameReviewColor = useBatchAutomationStore((s) => s.selectSameReviewColor);
@@ -64,6 +69,8 @@ export function BatchReviewTools() {
   }, [item, reviewSelectedLayerId]);
 
   const canAct = !!item && !!reviewSelectedLayerId;
+  const hasSelection = !!item && reviewSelectedLayerIds.length > 0;
+  const isDeselecting = reviewSelectionMode === "subtract";
   const canUndo = !!item && item.history.length > 0;
   const isRejected = item?.status === "skipped";
 
@@ -145,6 +152,46 @@ export function BatchReviewTools() {
         </p>
       </div>
 
+      {/* Refine the existing selection without changing the SVG. */}
+      <div className="space-y-1.5">
+        <span className="block text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+          Refine selection
+        </span>
+        <div className="flex gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!item || (!hasSelection && !isDeselecting)}
+            aria-pressed={isDeselecting}
+            onClick={() => setReviewSelectionMode(isDeselecting ? "select" : "subtract")}
+            className={cn(
+              "flex-1 rounded-xl text-xs font-semibold",
+              isDeselecting && "border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:text-violet-800",
+            )}
+            title="Toggle deselect mode. Clicking removes only that object from the selection."
+          >
+            <ListMinus className="w-3.5 h-3.5 mr-1" />
+            {isDeselecting ? "Done deselecting" : "Deselect objects"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!hasSelection}
+            onClick={clearReviewSelection}
+            className="rounded-xl px-2"
+            title="Clear all selections"
+            aria-label="Clear all selections"
+          >
+            <X className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+        <p className="text-[10px] leading-relaxed text-muted-foreground">
+          {isDeselecting
+            ? "Click selected objects to deselect them. Others stay selected. Use Delete selected to delete only the remaining selection."
+            : "Ctrl/Cmd or Shift+click adds or removes one object without clearing the others. Deselect mode also works with touch."}
+        </p>
+      </div>
+
       {/* Delete */}
       <div>
         <span className="block text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground mb-1.5">
@@ -154,13 +201,15 @@ export function BatchReviewTools() {
           <Button
             variant="destructive"
             size="sm"
-            disabled={!canAct}
+            disabled={!hasSelection}
             onClick={deleteReviewSelection}
+            title="Delete only the objects still selected, keeping deselected objects"
             className="w-full rounded-xl text-xs font-bold"
           >
             <Trash2 className="w-3.5 h-3.5 mr-1.5" />
             Delete selected
           </Button>
+          <p className="text-[10px] text-muted-foreground">Delete all by color (ignores selection):</p>
           <div className="grid grid-cols-3 gap-1.5">
             <Button
               variant="outline"
@@ -168,7 +217,7 @@ export function BatchReviewTools() {
               disabled={!canAct}
               onClick={() => deleteReviewSameColor("fill")}
               className="rounded-xl text-[11px] font-bold hover:text-red-600 hover:border-red-300 hover:bg-red-50"
-              title="Delete all with same fill"
+              title="Delete ALL with same fill, including objects you deselected"
             >
               <Droplet className="w-3.5 h-3.5 mr-1" />
               Fill
@@ -179,7 +228,7 @@ export function BatchReviewTools() {
               disabled={!canAct}
               onClick={() => deleteReviewSameColor("stroke")}
               className="rounded-xl text-[11px] font-bold hover:text-red-600 hover:border-red-300 hover:bg-red-50"
-              title="Delete all with same stroke"
+              title="Delete ALL with same stroke, including objects you deselected"
             >
               Stroke
             </Button>
@@ -189,7 +238,7 @@ export function BatchReviewTools() {
               disabled={!canAct}
               onClick={() => deleteReviewSameColor("fill-and-stroke")}
               className="rounded-xl text-[11px] font-bold hover:text-red-600 hover:border-red-300 hover:bg-red-50"
-              title="Delete all with same fill and stroke"
+              title="Delete ALL with same fill and stroke, including objects you deselected"
             >
               Both
             </Button>

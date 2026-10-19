@@ -27,6 +27,7 @@ import {
 import { normalizeColor } from "@/lib/utils/colorUtils";
 import { getCleanFileName } from "@/lib/utils/fileNameUtils";
 import { downloadBlob } from "@/lib/utils/downloadFile";
+import { adjustLayerSelection } from "@/lib/svg/layerSelection";
 
 const SVG_CANVAS_SIZE = 2500;
 
@@ -158,18 +159,21 @@ export const useSvgLayerStore = create<SvgLayerStore>((set, get) => ({
       selectedLayerId: newId,
       selectedLayerIds: newId ? [newId] : [],
       layers: updateLayerSelection(state.layers, newId),
+      sameColorResult: null,
     });
   },
 
   toggleLayerSelection: (layerId: string) => {
     const state = get();
-    const ids = state.selectedLayerIds.includes(layerId)
-      ? state.selectedLayerIds.filter((id) => id !== layerId)
-      : [...state.selectedLayerIds, layerId];
+    const wasSelected = state.selectedLayerIds.includes(layerId);
+    const selection = adjustLayerSelection(state, layerId);
 
     set({
-      selectedLayerIds: ids,
-      selectedLayerId: ids.length === 1 ? ids[0] : state.selectedLayerId,
+      ...selection,
+      layers: updateLayerSelection(state.layers, selection.selectedLayerId),
+      sameColorResult: wasSelected && state.sameColorResult && selection.selectedLayerIds.length > 0
+        ? { ...state.sameColorResult, count: selection.selectedLayerIds.length }
+        : null,
     });
   },
 

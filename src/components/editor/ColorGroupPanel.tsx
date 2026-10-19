@@ -130,6 +130,10 @@ export function ColorGroupPanel() {
                     {sameColorResult.mode}
                   </Badge>
                 </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Ctrl/Cmd or Shift+click an object to deselect it without clearing the others.
+                  You can also uncheck it in the layer list.
+                </p>
 
                 {sameColorResult.color && (
                   <div className="flex items-center gap-2">

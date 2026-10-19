@@ -19,6 +19,7 @@ import { parseSvg } from "@/lib/svg/parseSvg";
 import { serializeSvg } from "@/lib/svg/serializeSvg";
 import { deleteElementsByLayerIds } from "@/lib/svg/deleteSvgElements";
 import { findElementsByNearColor, getReviewLayerColors, NearColorMode } from "@/lib/svg/findElementsByNearColor";
+import { adjustLayerSelection } from "@/lib/svg/layerSelection";
 
 export type ResultFilter = "all" | "success" | "failed" | "skipped" | "processing";
 
@@ -58,6 +59,7 @@ type BatchAutomationStore = {
   activeReviewId: string | null;
   reviewSelectedLayerId: string | null;
   reviewSelectedLayerIds: string[];
+  reviewSelectionMode: "select" | "subtract";
   reviewSearchQuery: string;
   reviewFilter: ReviewFilter;
   reviewLastAction: string | null;
@@ -93,6 +95,8 @@ type BatchAutomationStore = {
   prevReviewItem: () => void;
   selectReviewLayer: (layerId: string) => void;
   toggleReviewLayer: (layerId: string) => void;
+  deselectReviewLayer: (layerId: string) => void;
+  setReviewSelectionMode: (mode: "select" | "subtract") => void;
   clearReviewSelection: () => void;
   selectSameReviewColor: (mode: NearColorMode) => void;
   deleteReviewSelection: () => void;
@@ -150,6 +154,7 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
   activeReviewId: null,
   reviewSelectedLayerId: null,
   reviewSelectedLayerIds: [],
+  reviewSelectionMode: "select",
   reviewSearchQuery: "",
   reviewFilter: "all",
   reviewLastAction: null,
@@ -289,6 +294,7 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
       reviewSelectedLayerId: null,
       reviewSelectedLayerIds: [],
       reviewSearchQuery: "",
+      reviewSelectionMode: "select",
       reviewFilter: "all",
       reviewLastAction: null,
     });
@@ -390,6 +396,7 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
       reviewSelectedLayerId: null,
       reviewSelectedLayerIds: [],
       reviewLastAction: null,
+      reviewSelectionMode: "select",
     });
 
     const { files, options } = get();
@@ -464,6 +471,7 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
       reviewSelectedLayerId: null,
       reviewSelectedLayerIds: [],
       reviewLastAction: null,
+      reviewSelectionMode: "select",
     });
   },
 
@@ -473,6 +481,7 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
       reviewSelectedLayerId: null,
       reviewSelectedLayerIds: [],
       reviewLastAction: null,
+      reviewSelectionMode: "select",
     });
   },
 
@@ -503,19 +512,49 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
   },
 
   toggleReviewLayer: (layerId) => {
-    const { activeReviewId, reviewSelectedLayerIds } = get();
+    const { activeReviewId, reviewSelectedLayerId, reviewSelectedLayerIds } = get();
     if (!activeReviewId) return;
-    const ids = reviewSelectedLayerIds.includes(layerId)
-      ? reviewSelectedLayerIds.filter((id) => id !== layerId)
-      : [...reviewSelectedLayerIds, layerId];
+    const selection = adjustLayerSelection({
+      selectedLayerId: reviewSelectedLayerId,
+      selectedLayerIds: reviewSelectedLayerIds,
+    }, layerId);
     set({
-      reviewSelectedLayerIds: ids,
-      reviewSelectedLayerId: ids.length === 1 ? ids[0] : get().reviewSelectedLayerId,
+      reviewSelectedLayerIds: selection.selectedLayerIds,
+      reviewSelectedLayerId: selection.selectedLayerId,
+      reviewLastAction: `${selection.selectedLayerIds.length} objects selected.`,
+    });
+  },
+
+  deselectReviewLayer: (layerId) => {
+    const { activeReviewId, reviewSelectedLayerId, reviewSelectedLayerIds } = get();
+    if (!activeReviewId || !reviewSelectedLayerIds.includes(layerId)) return;
+    const selection = adjustLayerSelection({
+      selectedLayerId: reviewSelectedLayerId,
+      selectedLayerIds: reviewSelectedLayerIds,
+    }, layerId, "remove");
+    set({
+      reviewSelectedLayerIds: selection.selectedLayerIds,
+      reviewSelectedLayerId: selection.selectedLayerId,
+      reviewLastAction: `Object deselected. ${selection.selectedLayerIds.length} objects remain selected.`,
+    });
+  },
+
+  setReviewSelectionMode: (mode) => {
+    set({
+      reviewSelectionMode: mode,
+      reviewLastAction: mode === "subtract"
+        ? "Click selected objects to deselect them. Other selections will be kept."
+        : `${get().reviewSelectedLayerIds.length} objects remain selected.`,
     });
   },
 
   clearReviewSelection: () => {
-    set({ reviewSelectedLayerId: null, reviewSelectedLayerIds: [] });
+    set({
+      reviewSelectedLayerId: null,
+      reviewSelectedLayerIds: [],
+      reviewSelectionMode: "select",
+      reviewLastAction: "Selection cleared.",
+    });
   },
 
   selectSameReviewColor: (mode) => {
@@ -537,6 +576,8 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
     const colorLabel = mode === "stroke" ? colors.stroke : colors.fill;
     set({
       reviewSelectedLayerIds: ids,
+      reviewSelectedLayerId: ids.includes(reviewSelectedLayerId) ? reviewSelectedLayerId : ids[0],
+      reviewSelectionMode: "select",
       reviewLastAction: `${ids.length} objects with ${mode} ${colorLabel || ""} selected.`,
     });
   },
@@ -569,6 +610,7 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
       reviewSelectedLayerId: null,
       reviewSelectedLayerIds: [],
       reviewLastAction: `${res.deletedCount} object${res.deletedCount > 1 ? "s" : ""} deleted manually.`,
+      reviewSelectionMode: "select",
     }));
     get().addLog({ level: "delete", message: `${item.fileName}: [MANUAL] ${res.deletedCount} objects deleted.`, fileName: item.fileName });
   },
@@ -605,6 +647,7 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
       reviewSelectedLayerId: null,
       reviewSelectedLayerIds: [],
       reviewLastAction: `${res.deletedCount} objects with same ${mode} deleted (tolerance ${options.reviewColorTolerance}).`,
+      reviewSelectionMode: "select",
     }));
     get().addLog({ level: "delete", message: `${item.fileName}: [MANUAL] ${res.deletedCount} same-${mode} objects deleted.`, fileName: item.fileName });
   },
@@ -627,6 +670,7 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
       reviewSelectedLayerId: null,
       reviewSelectedLayerIds: [],
       reviewLastAction: "Manual edit undone.",
+      reviewSelectionMode: "select",
     }));
   },
 
