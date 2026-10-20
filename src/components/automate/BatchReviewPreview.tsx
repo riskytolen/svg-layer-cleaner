@@ -24,6 +24,9 @@ export function BatchReviewPreview() {
   const toggleReviewLayer = useBatchAutomationStore((s) => s.toggleReviewLayer);
   const deselectReviewLayer = useBatchAutomationStore((s) => s.deselectReviewLayer);
   const reviewSelectionMode = useBatchAutomationStore((s) => s.reviewSelectionMode);
+  const reviewPickColorMode = useBatchAutomationStore((s) => s.reviewPickColorMode);
+  const setReviewPickColorMode = useBatchAutomationStore((s) => s.setReviewPickColorMode);
+  const pickReviewColor = useBatchAutomationStore((s) => s.pickReviewColor);
   const reviewCanvas = useBatchAutomationStore((s) => s.options.reviewCanvas);
   const updateOptions = useBatchAutomationStore((s) => s.updateOptions);
 
@@ -102,8 +105,8 @@ export function BatchReviewPreview() {
 
   const setViewportCursor = useCallback((grabbing: boolean) => {
     const el = viewportRef.current;
-    if (el) el.style.cursor = grabbing ? "grabbing" : reviewSelectionMode === "subtract" ? "crosshair" : "grab";
-  }, [reviewSelectionMode]);
+    if (el) el.style.cursor = grabbing ? "grabbing" : reviewSelectionMode === "subtract" || reviewPickColorMode ? "crosshair" : "grab";
+  }, [reviewSelectionMode, reviewPickColorMode]);
 
   // Fit only when the active asset changes, never on manual SVG edits.
   useEffect(() => {
@@ -240,13 +243,27 @@ export function BatchReviewPreview() {
         }
         if (!layerId) layerId = getLayerIdFromTarget(e.target);
         if (!layerId) return;
+        if (reviewPickColorMode) {
+          pickReviewColor(layerId);
+          return;
+        }
         if (reviewSelectionMode === "subtract") deselectReviewLayer(layerId);
         else if (e.ctrlKey || e.metaKey || e.shiftKey) toggleReviewLayer(layerId);
         else selectReviewLayer(layerId);
       }
     },
-    [getLayerIdFromTarget, selectReviewLayer, setViewportCursor, toggleReviewLayer, deselectReviewLayer, reviewSelectionMode],
+    [getLayerIdFromTarget, selectReviewLayer, setViewportCursor, toggleReviewLayer, deselectReviewLayer, reviewSelectionMode, reviewPickColorMode, pickReviewColor],
   );
+
+  // Esc exits the color picker so a stray pipette cannot swallow later clicks.
+  useEffect(() => {
+    if (!reviewPickColorMode) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setReviewPickColorMode(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [reviewPickColorMode, setReviewPickColorMode]);
 
   useEffect(() => {
     const el = viewportRef.current;
@@ -373,7 +390,7 @@ export function BatchReviewPreview() {
       <div
         ref={viewportRef}
         className="relative flex-1 min-h-[420px] overflow-hidden select-none"
-        style={{ ...CANVAS_BG[reviewCanvas], cursor: reviewSelectionMode === "subtract" ? "crosshair" : "grab", touchAction: "none" }}
+        style={{ ...CANVAS_BG[reviewCanvas], cursor: reviewSelectionMode === "subtract" || reviewPickColorMode ? "crosshair" : "grab", touchAction: "none" }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={endPointerDrag}
@@ -418,9 +435,11 @@ export function BatchReviewPreview() {
         {/* Hint */}
         {svgText && (
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 max-w-[calc(100%-24px)] px-3 py-1.5 rounded-full bg-black/60 text-[11px] text-white/90 text-center pointer-events-none">
-            {reviewSelectionMode === "subtract"
-              ? "Click selected objects to deselect · other selections are kept · drag to pan"
-              : "Click to select · Ctrl/Cmd or Shift+click to add/remove · drag to pan · scroll to zoom"}
+            {reviewPickColorMode
+              ? "Pipette active · click an object to copy its color (selection kept) · Esc to stop"
+              : reviewSelectionMode === "subtract"
+                ? "Click selected objects to deselect · other selections are kept · drag to pan"
+                : "Click to select · Ctrl/Cmd or Shift+click to add/remove · drag to pan · scroll to zoom"}
           </div>
         )}
       </div>

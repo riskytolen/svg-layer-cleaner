@@ -13,6 +13,10 @@ export { findElementsBySameFillColor, findElementsBySameStrokeColor, findElement
 export type { SelectByColorOptions } from "./selectSameColor";
 export { findElementsByNearColor, getReviewLayerColors } from "./findElementsByNearColor";
 export type { NearColorMode, FindNearColorOptions } from "./findElementsByNearColor";
+export { applyColorToLayers } from "./reviewColor";
+export type { ApplyColorResult } from "./reviewColor";
+export { normalizeReviewColorInput, mergeInlineColor } from "./reviewColorCore";
+export type { ReviewColorProperty } from "./reviewColorCore";
 export { cleanSvgDocument, optimizeSvgWhitespace } from "./cleanSvg";
 export { quickCleanSvg } from "./quickCleanSvg";
 export { quickCleanSvgWithDefaultOptions, compareQuickCleanOutputs, getTopLevelVisualGroups } from "./quickCleanPipeline";

@@ -20,6 +20,9 @@ import { serializeSvg } from "@/lib/svg/serializeSvg";
 import { deleteElementsByLayerIds } from "@/lib/svg/deleteSvgElements";
 import { findElementsByNearColor, getReviewLayerColors, NearColorMode } from "@/lib/svg/findElementsByNearColor";
 import { adjustLayerSelection } from "@/lib/svg/layerSelection";
+import { applyColorToLayers } from "@/lib/svg/reviewColor";
+import { normalizeReviewColorInput } from "@/lib/svg/reviewColorCore";
+import type { ReviewColorProperty } from "@/lib/svg/reviewColorCore";
 
 export type ResultFilter = "all" | "success" | "failed" | "skipped" | "processing";
 
@@ -60,6 +63,12 @@ type BatchAutomationStore = {
   reviewSelectedLayerId: string | null;
   reviewSelectedLayerIds: string[];
   reviewSelectionMode: "select" | "subtract";
+  /** When true, canvas clicks sample the clicked object's color without changing the selection. */
+  reviewPickColorMode: boolean;
+  /** Which paint property manual recoloring edits/samples. */
+  reviewColorProperty: ReviewColorProperty;
+  /** Current edit color (any CSS color text; normalized on apply). */
+  reviewEditColor: string | null;
   reviewSearchQuery: string;
   reviewFilter: ReviewFilter;
   reviewLastAction: string | null;
@@ -97,6 +106,11 @@ type BatchAutomationStore = {
   toggleReviewLayer: (layerId: string) => void;
   deselectReviewLayer: (layerId: string) => void;
   setReviewSelectionMode: (mode: "select" | "subtract") => void;
+  setReviewPickColorMode: (enabled: boolean) => void;
+  setReviewColorProperty: (property: ReviewColorProperty) => void;
+  setReviewEditColor: (color: string | null) => void;
+  pickReviewColor: (layerId: string) => void;
+  applyReviewColor: () => void;
   clearReviewSelection: () => void;
   selectSameReviewColor: (mode: NearColorMode) => void;
   deleteReviewSelection: () => void;
@@ -155,6 +169,9 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
   reviewSelectedLayerId: null,
   reviewSelectedLayerIds: [],
   reviewSelectionMode: "select",
+  reviewPickColorMode: false,
+  reviewColorProperty: "fill",
+  reviewEditColor: null,
   reviewSearchQuery: "",
   reviewFilter: "all",
   reviewLastAction: null,
@@ -295,6 +312,9 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
       reviewSelectedLayerIds: [],
       reviewSearchQuery: "",
       reviewSelectionMode: "select",
+      reviewPickColorMode: false,
+      reviewColorProperty: "fill",
+      reviewEditColor: null,
       reviewFilter: "all",
       reviewLastAction: null,
     });
@@ -397,6 +417,9 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
       reviewSelectedLayerIds: [],
       reviewLastAction: null,
       reviewSelectionMode: "select",
+      reviewPickColorMode: false,
+      reviewColorProperty: "fill",
+      reviewEditColor: null,
     });
 
     const { files, options } = get();
@@ -472,6 +495,9 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
       reviewSelectedLayerIds: [],
       reviewLastAction: null,
       reviewSelectionMode: "select",
+      reviewPickColorMode: false,
+      reviewColorProperty: "fill",
+      reviewEditColor: null,
     });
   },
 
@@ -482,6 +508,7 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
       reviewSelectedLayerIds: [],
       reviewLastAction: null,
       reviewSelectionMode: "select",
+      reviewPickColorMode: false,
     });
   },
 
@@ -545,6 +572,95 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
       reviewLastAction: mode === "subtract"
         ? "Click selected objects to deselect them. Other selections will be kept."
         : `${get().reviewSelectedLayerIds.length} objects remain selected.`,
+    });
+  },
+
+  setReviewPickColorMode: (enabled) => {
+    set({
+      reviewPickColorMode: enabled,
+      reviewLastAction: enabled
+        ? "Pipette active. Click an object on the canvas to copy its color; your selection is kept."
+        : "Pipette stopped.",
+    });
+  },
+
+  setReviewColorProperty: (property) => {
+    set({
+      reviewColorProperty: property,
+      reviewLastAction: `Color edits now target ${property === "stroke" ? "stroke" : "fill"}.`,
+    });
+  },
+
+  setReviewEditColor: (color) => {
+    set({ reviewEditColor: color });
+  },
+
+  pickReviewColor: (layerId) => {
+    const { reviewItems, activeReviewId, reviewColorProperty } = get();
+    const item = reviewItems.find((r) => r.id === activeReviewId);
+    if (!item) return;
+    const propertyLabel = reviewColorProperty === "stroke" ? "stroke" : "fill";
+    let color: string | null = null;
+    try {
+      const colors = getReviewLayerColors(item.doc, layerId);
+      color = reviewColorProperty === "stroke" ? colors.stroke : colors.fill;
+    } catch {
+      color = null;
+    }
+    if (!color) {
+      set({
+        reviewLastAction: `Picked object has no ${propertyLabel} color. Try another object or switch the property.`,
+      });
+      return;
+    }
+    const count = get().reviewSelectedLayerIds.length;
+    set({
+      reviewEditColor: color,
+      reviewLastAction: `${propertyLabel} color ${color} copied.${
+        count > 0
+          ? ` Click Apply color to change ${count} selected object${count > 1 ? "s" : ""}.`
+          : " Select objects, then Apply color."
+      }`,
+    });
+  },
+
+  applyReviewColor: () => {
+    const { reviewItems, activeReviewId, reviewSelectedLayerIds, reviewEditColor, reviewColorProperty } = get();
+    const item = reviewItems.find((r) => r.id === activeReviewId);
+    if (!item || reviewSelectedLayerIds.length === 0) {
+      set({ reviewLastAction: "Select the objects whose color you want to change." });
+      return;
+    }
+    const hex = normalizeReviewColorInput(reviewEditColor);
+    if (!hex) {
+      set({ reviewLastAction: "Pick a color on the canvas or enter a valid hex value first." });
+      return;
+    }
+    const before = serializeSvg(item.doc);
+    const res = applyColorToLayers(item.doc, reviewSelectedLayerIds, reviewColorProperty, hex);
+    if (res.changed === 0) {
+      set({ reviewLastAction: "Nothing changed. Selected objects may be protected and cannot be colored." });
+      return;
+    }
+    const svgText = serializeSvg(item.doc);
+    const skippedNote = res.skipped > 0 ? ` ${res.skipped} protected object${res.skipped > 1 ? "s" : ""} skipped.` : "";
+    set((state) => ({
+      reviewItems: state.reviewItems.map((r) =>
+        r.id === item.id
+          ? {
+              ...r,
+              svgText,
+              history: [...r.history.slice(-49), before],
+            }
+          : r,
+      ),
+      reviewEditColor: hex,
+      reviewLastAction: `${res.changed} object${res.changed > 1 ? "s" : ""} ${reviewColorProperty} changed to ${hex}.${skippedNote}`,
+    }));
+    get().addLog({
+      level: "color",
+      message: `${item.fileName}: [MANUAL] ${res.changed} objects ${reviewColorProperty} changed to ${hex}.`,
+      fileName: item.fileName,
     });
   },
 

@@ -2,7 +2,8 @@
 
 import { useMemo } from "react";
 import { useBatchAutomationStore } from "@/store/batchAutomationStore";
-import { getReviewLayerColors } from "@/lib/svg";
+import { getReviewLayerColors, normalizeReviewColorInput } from "@/lib/svg";
+import type { ReviewColorProperty } from "@/lib/svg";
 import { Button } from "@/components/ui/button";
 import {
   MousePointerClick,
@@ -16,6 +17,7 @@ import {
   Brush,
   ListMinus,
   X,
+  PaintBucket,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
@@ -46,6 +48,13 @@ export function BatchReviewTools() {
   const reviewSelectedLayerIds = useBatchAutomationStore((s) => s.reviewSelectedLayerIds);
   const reviewSelectionMode = useBatchAutomationStore((s) => s.reviewSelectionMode);
   const setReviewSelectionMode = useBatchAutomationStore((s) => s.setReviewSelectionMode);
+  const reviewPickColorMode = useBatchAutomationStore((s) => s.reviewPickColorMode);
+  const setReviewPickColorMode = useBatchAutomationStore((s) => s.setReviewPickColorMode);
+  const reviewColorProperty = useBatchAutomationStore((s) => s.reviewColorProperty);
+  const setReviewColorProperty = useBatchAutomationStore((s) => s.setReviewColorProperty);
+  const reviewEditColor = useBatchAutomationStore((s) => s.reviewEditColor);
+  const setReviewEditColor = useBatchAutomationStore((s) => s.setReviewEditColor);
+  const applyReviewColor = useBatchAutomationStore((s) => s.applyReviewColor);
   const clearReviewSelection = useBatchAutomationStore((s) => s.clearReviewSelection);
   const reviewColorTolerance = useBatchAutomationStore((s) => s.options.reviewColorTolerance);
   const reviewLastAction = useBatchAutomationStore((s) => s.reviewLastAction);
@@ -73,6 +82,9 @@ export function BatchReviewTools() {
   const isDeselecting = reviewSelectionMode === "subtract";
   const canUndo = !!item && item.history.length > 0;
   const isRejected = item?.status === "skipped";
+  const pickerHex = normalizeReviewColorInput(reviewEditColor);
+  const pickerValue = pickerHex ?? "#000000";
+  const propertyLabel: ReviewColorProperty = reviewColorProperty;
 
   return (
     <div className="rounded-2xl border border-border bg-card p-4 shadow-[0_1px_2px_rgba(16,24,40,0.05)] space-y-4 h-full max-h-[720px] overflow-auto">
@@ -189,6 +201,83 @@ export function BatchReviewTools() {
           {isDeselecting
             ? "Click selected objects to deselect them. Others stay selected. Use Delete selected to delete only the remaining selection."
             : "Ctrl/Cmd or Shift+click adds or removes one object without clearing the others. Deselect mode also works with touch."}
+        </p>
+      </div>
+
+      {/* Change color of the current selection */}
+      <div className="space-y-1.5">
+        <span className="block text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+          Change color
+        </span>
+        <div className="flex gap-1.5">
+          {(["fill", "stroke"] as const).map((property) => {
+            const active = reviewColorProperty === property;
+            return (
+              <Button
+                key={property}
+                variant="outline"
+                size="sm"
+                onClick={() => setReviewColorProperty(property)}
+                aria-pressed={active}
+                className={cn(
+                  "flex-1 rounded-xl text-xs font-semibold",
+                  active && "border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:text-violet-800",
+                )}
+                title={active ? `Currently editing ${property}` : `Switch to editing ${property}`}
+              >
+                {property === "fill" ? "Fill" : "Stroke"}
+              </Button>
+            );
+          })}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <input
+            type="color"
+            value={pickerValue}
+            onChange={(e) => setReviewEditColor(e.target.value.toUpperCase())}
+            className="w-9 h-8 p-0.5 rounded-lg border border-input bg-background cursor-pointer shrink-0"
+            title="Pick a color"
+            aria-label="Edit color picker"
+          />
+          <input
+            type="text"
+            value={reviewEditColor ?? ""}
+            onChange={(e) => setReviewEditColor(e.target.value.trim())}
+            placeholder="#RRGGBB"
+            spellCheck={false}
+            className="min-w-0 flex-1 h-8 rounded-lg border border-input bg-background px-2 font-mono text-xs uppercase tracking-tight focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            aria-label="Edit color hex value"
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!item}
+            aria-pressed={reviewPickColorMode}
+            onClick={() => setReviewPickColorMode(!reviewPickColorMode)}
+            className={cn(
+              "rounded-xl px-2 shrink-0",
+              reviewPickColorMode && "border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:text-violet-800",
+            )}
+            title="Pick a color from any object on the canvas. Your selection stays intact."
+            aria-label="Pick color from canvas"
+          >
+            <Pipette className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={!hasSelection || !pickerHex}
+          onClick={applyReviewColor}
+          className="w-full rounded-xl text-xs font-bold"
+          title={`Change the ${propertyLabel} of ${reviewSelectedLayerIds.length} selected object${reviewSelectedLayerIds.length > 1 ? "s" : ""}`}
+        >
+          <PaintBucket className="w-3.5 h-3.5 mr-1.5" />
+          Apply color{hasSelection ? ` (${reviewSelectedLayerIds.length})` : ""}
+        </Button>
+        <p className="text-[10px] leading-relaxed text-muted-foreground">
+          Edits the {propertyLabel} of every selected object. With the pipette active, click another object to copy
+          its color; your selection is kept. Use Undo to restore the previous color.
         </p>
       </div>
 
