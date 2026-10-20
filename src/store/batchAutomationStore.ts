@@ -19,7 +19,7 @@ import { parseSvg } from "@/lib/svg/parseSvg";
 import { serializeSvg } from "@/lib/svg/serializeSvg";
 import { deleteElementsByLayerIds } from "@/lib/svg/deleteSvgElements";
 import { findElementsByNearColor, getReviewLayerColors, NearColorMode } from "@/lib/svg/findElementsByNearColor";
-import { adjustLayerSelection } from "@/lib/svg/layerSelection";
+import { adjustLayerSelection, subtractLayerSelection } from "@/lib/svg/layerSelection";
 import { applyColorToLayers } from "@/lib/svg/reviewColor";
 import { normalizeReviewColorInput } from "@/lib/svg/reviewColorCore";
 import type { ReviewColorProperty } from "@/lib/svg/reviewColorCore";
@@ -62,7 +62,7 @@ type BatchAutomationStore = {
   activeReviewId: string | null;
   reviewSelectedLayerId: string | null;
   reviewSelectedLayerIds: string[];
-  reviewSelectionMode: "select" | "subtract";
+  reviewSelectionMode: "select" | "subtract" | "area-subtract";
   /** When true, canvas clicks sample the clicked object's color without changing the selection. */
   reviewPickColorMode: boolean;
   /** Which paint property manual recoloring edits/samples. */
@@ -105,12 +105,13 @@ type BatchAutomationStore = {
   selectReviewLayer: (layerId: string) => void;
   toggleReviewLayer: (layerId: string) => void;
   deselectReviewLayer: (layerId: string) => void;
-  setReviewSelectionMode: (mode: "select" | "subtract") => void;
+  setReviewSelectionMode: (mode: "select" | "subtract" | "area-subtract") => void;
   setReviewPickColorMode: (enabled: boolean) => void;
   setReviewColorProperty: (property: ReviewColorProperty) => void;
   setReviewEditColor: (color: string | null) => void;
   pickReviewColor: (layerId: string) => void;
   applyReviewColor: () => void;
+  deselectReviewLayers: (layerIds: string[]) => void;
   clearReviewSelection: () => void;
   selectSameReviewColor: (mode: NearColorMode) => void;
   deleteReviewSelection: () => void;
@@ -566,18 +567,37 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
     });
   },
 
+  deselectReviewLayers: (layerIds) => {
+    const { activeReviewId, reviewSelectedLayerId, reviewSelectedLayerIds } = get();
+    if (!activeReviewId || layerIds.length === 0) return;
+    const next = subtractLayerSelection({
+      selectedLayerId: reviewSelectedLayerId,
+      selectedLayerIds: reviewSelectedLayerIds,
+    }, layerIds);
+    if (next.removed.length === 0) return;
+    set({
+      reviewSelectedLayerIds: next.selectedLayerIds,
+      reviewSelectedLayerId: next.selectedLayerId,
+      reviewLastAction: `${next.removed.length} object${next.removed.length > 1 ? "s" : ""} deselected by area. ${next.selectedLayerIds.length} remain selected.`,
+    });
+  },
+
   setReviewSelectionMode: (mode) => {
     set({
       reviewSelectionMode: mode,
-      reviewLastAction: mode === "subtract"
-        ? "Click selected objects to deselect them. Other selections will be kept."
-        : `${get().reviewSelectedLayerIds.length} objects remain selected.`,
+      reviewPickColorMode: false,
+      reviewLastAction: mode === "area-subtract"
+        ? "Area deselect active. Drag a box over selected objects to release them; others stay selected."
+        : mode === "subtract"
+          ? "Click selected objects to deselect them. Other selections will be kept."
+          : `${get().reviewSelectedLayerIds.length} objects remain selected.`,
     });
   },
 
   setReviewPickColorMode: (enabled) => {
     set({
       reviewPickColorMode: enabled,
+      reviewSelectionMode: enabled ? "select" : get().reviewSelectionMode,
       reviewLastAction: enabled
         ? "Pipette active. Click an object on the canvas to copy its color; your selection is kept."
         : "Pipette stopped.",

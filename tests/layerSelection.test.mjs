@@ -8,7 +8,7 @@ const source = readFileSync(new URL("../src/lib/svg/layerSelection.ts", import.m
 const { outputText } = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2017 },
 });
-const { adjustLayerSelection } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString("base64")}`);
+const { adjustLayerSelection, subtractLayerSelection } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString("base64")}`);
 
 test("deselects the reference object after Select Same Fill and keeps the other 25", () => {
   const ids = Array.from({ length: 26 }, (_, i) => `layer-${i + 1}`);
@@ -70,4 +70,44 @@ test("toggle can start and finish a selection", () => {
   const selected = adjustLayerSelection({ selectedLayerId: null, selectedLayerIds: [] }, "a");
   assert.deepEqual(selected, { selectedLayerId: "a", selectedLayerIds: ["a"] });
   assert.deepEqual(adjustLayerSelection(selected, "a"), { selectedLayerId: null, selectedLayerIds: [] });
+});
+
+test("bulk area deselect removes only the intersecting ids", () => {
+  const next = subtractLayerSelection(
+    { selectedLayerId: "a", selectedLayerIds: ["a", "b", "c", "d"] },
+    ["b", "d"],
+  );
+  assert.deepEqual(next, { removed: ["b", "d"], selectedLayerId: "a", selectedLayerIds: ["a", "c"] });
+});
+
+test("bulk area deselect keeps the active object when it stays outside the box", () => {
+  const next = subtractLayerSelection(
+    { selectedLayerId: "b", selectedLayerIds: ["a", "b", "c"] },
+    ["a", "c"],
+  );
+  assert.deepEqual(next, { removed: ["a", "c"], selectedLayerId: "b", selectedLayerIds: ["b"] });
+});
+
+test("bulk area deselect activates the first remaining object when the active one was removed", () => {
+  const next = subtractLayerSelection(
+    { selectedLayerId: "a", selectedLayerIds: ["a", "b"] },
+    ["a"],
+  );
+  assert.deepEqual(next, { removed: ["a"], selectedLayerId: "b", selectedLayerIds: ["b"] });
+});
+
+test("bulk area deselect of everything clears the selection", () => {
+  const next = subtractLayerSelection(
+    { selectedLayerId: "a", selectedLayerIds: ["a", "b"] },
+    ["a", "b", "x"],
+  );
+  assert.deepEqual(next, { removed: ["a", "b"], selectedLayerId: null, selectedLayerIds: [] });
+});
+
+test("bulk area deselect with unknown ids changes nothing", () => {
+  assert.deepEqual(subtractLayerSelection({ selectedLayerId: "a", selectedLayerIds: ["a"] }, ["x", "y"]), {
+    removed: [],
+    selectedLayerId: "a",
+    selectedLayerIds: ["a"],
+  });
 });

@@ -24,9 +24,11 @@ export function BatchReviewPreview() {
   const toggleReviewLayer = useBatchAutomationStore((s) => s.toggleReviewLayer);
   const deselectReviewLayer = useBatchAutomationStore((s) => s.deselectReviewLayer);
   const reviewSelectionMode = useBatchAutomationStore((s) => s.reviewSelectionMode);
+  const setReviewSelectionMode = useBatchAutomationStore((s) => s.setReviewSelectionMode);
   const reviewPickColorMode = useBatchAutomationStore((s) => s.reviewPickColorMode);
   const setReviewPickColorMode = useBatchAutomationStore((s) => s.setReviewPickColorMode);
   const pickReviewColor = useBatchAutomationStore((s) => s.pickReviewColor);
+  const deselectReviewLayers = useBatchAutomationStore((s) => s.deselectReviewLayers);
   const reviewCanvas = useBatchAutomationStore((s) => s.options.reviewCanvas);
   const updateOptions = useBatchAutomationStore((s) => s.updateOptions);
 
@@ -54,7 +56,11 @@ export function BatchReviewPreview() {
     moved: false,
     downLayerId: null as string | null,
     button: 0,
+    marquee: false,
   });
+  // Area-deselect marquee rectangle, driven directly through the DOM so
+  // pointermove never triggers a React re-render while dragging.
+  const marqueeRef = useRef<HTMLDivElement>(null);
 
   const applyTransform = useCallback(() => {
     const layer = transformLayerRef.current;
@@ -105,8 +111,65 @@ export function BatchReviewPreview() {
 
   const setViewportCursor = useCallback((grabbing: boolean) => {
     const el = viewportRef.current;
-    if (el) el.style.cursor = grabbing ? "grabbing" : reviewSelectionMode === "subtract" || reviewPickColorMode ? "crosshair" : "grab";
+    if (el) el.style.cursor = grabbing
+      ? "grabbing"
+      : reviewSelectionMode !== "select" || reviewPickColorMode
+        ? "crosshair"
+        : "grab";
   }, [reviewSelectionMode, reviewPickColorMode]);
+
+  // Marquee rectangle from two viewport-relative corner positions.
+  const updateMarqueeRect = useCallback((aX: number, aY: number, bX: number, bY: number) => {
+    const el = marqueeRef.current;
+    const container = viewportRef.current;
+    if (!el || !container) return;
+    const rect = container.getBoundingClientRect();
+    const left = Math.min(aX, bX) - rect.left;
+    const top = Math.min(aY, bY) - rect.top;
+    const width = Math.abs(bX - aX);
+    const height = Math.abs(bY - aY);
+    el.style.left = `${left}px`;
+    el.style.top = `${top}px`;
+    el.style.width = `${width}px`;
+    el.style.height = `${height}px`;
+  }, []);
+
+  // Release every selected object whose box intersects the dragged rectangle.
+  const applyAreaDeselect = useCallback(
+    (aX: number, aY: number, bX: number, bY: number) => {
+      const container = viewportRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const boxLeft = Math.min(aX, bX) - rect.left;
+      const boxTop = Math.min(aY, bY) - rect.top;
+      const boxRight = Math.max(aX, bX) - rect.left;
+      const boxBottom = Math.max(aY, bY) - rect.top;
+      const svgEl = container.querySelector("svg");
+      if (!svgEl) return;
+      const removeIds: string[] = [];
+      for (const id of reviewSelectedLayerIds) {
+        const el = svgEl.querySelector(`[data-layer-id="${CSS.escape(id)}"]`);
+        if (!el) continue;
+        const elRect = el.getBoundingClientRect();
+        const elLeft = elRect.left - rect.left;
+        const elTop = elRect.top - rect.top;
+        // Intersection counts touch contact: any overlap releases the object.
+        const intersects = !(
+          elLeft + elRect.width < boxLeft ||
+          elLeft > boxRight ||
+          elTop + elRect.height < boxTop ||
+          elTop > boxBottom
+        );
+        if (intersects && !removeIds.includes(id)) removeIds.push(id);
+      }
+      if (removeIds.length > 0) deselectReviewLayers(removeIds);
+    },
+    [reviewSelectedLayerIds, deselectReviewLayers],
+  );
+
+  const hideMarquee = useCallback(() => {
+    if (marqueeRef.current) marqueeRef.current.style.display = "none";
+  }, []);
 
   // Fit only when the active asset changes, never on manual SVG edits.
   useEffect(() => {
@@ -175,6 +238,30 @@ export function BatchReviewPreview() {
       if (e.isPrimary === false) return;
       // Only left button / touch / pen. Allow middle-button pan as well.
       if (e.pointerType === "mouse" && e.button !== 0 && e.button !== 1) return;
+
+      if (reviewSelectionMode === "area-subtract" && (e.pointerType !== "mouse" || e.button === 0)) {
+        dragRef.current = {
+          active: true,
+          pointerId: e.pointerId,
+          startX: e.clientX,
+          startY: e.clientY,
+          startPanX: panRef.current.x,
+          startPanY: panRef.current.y,
+          moved: false,
+          downLayerId: null,
+          button: e.button,
+          marquee: true,
+        };
+        if (marqueeRef.current) {
+          marqueeRef.current.style.display = "block";
+          marqueeRef.current.style.left = "0px";
+          marqueeRef.current.style.top = "0px";
+          marqueeRef.current.style.width = "0px";
+          marqueeRef.current.style.height = "0px";
+        }
+        return;
+      }
+
       // Capture the layer under the pointer BEFORE any pointer-capture retargeting.
       const downLayerId = getLayerIdFromTarget(e.target);
       dragRef.current = {
@@ -187,18 +274,33 @@ export function BatchReviewPreview() {
         moved: false,
         downLayerId,
         button: e.button,
+        marquee: false,
       };
       setViewportCursor(true);
       // NOTE: capture is deferred until the pointer moves past the click
       // threshold, so clicks keep their native target for selection.
     },
-    [getLayerIdFromTarget, setViewportCursor],
+    [getLayerIdFromTarget, setViewportCursor, reviewSelectionMode],
   );
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
       const drag = dragRef.current;
       if (!drag.active || e.pointerId !== drag.pointerId) return;
+      if (drag.marquee) {
+        // 4px threshold: below = no-op, above = draw the rectangle.
+        if (!drag.moved && Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) > 4) {
+          drag.moved = true;
+          try {
+            e.currentTarget.setPointerCapture(e.pointerId);
+          } catch {
+            // ignore - capture is best-effort
+          }
+        }
+        if (!drag.moved) return;
+        updateMarqueeRect(drag.startX, drag.startY, e.clientX, e.clientY);
+        return;
+      }
       const dx = e.clientX - drag.startX;
       const dy = e.clientY - drag.startY;
       // 4px threshold: below = click/select, above = pan.
@@ -214,7 +316,7 @@ export function BatchReviewPreview() {
       panRef.current = { x: drag.startPanX + dx, y: drag.startPanY + dy };
       scheduleTransform();
     },
-    [scheduleTransform],
+    [scheduleTransform, updateMarqueeRect],
   );
 
   const endPointerDrag = useCallback(
@@ -229,6 +331,14 @@ export function BatchReviewPreview() {
         }
       } catch {
         // ignore
+      }
+      if (drag.marquee) {
+        hideMarquee();
+        // Treat as click/select when the pointer barely moved.
+        if (drag.moved && e.type !== "pointercancel") {
+          applyAreaDeselect(drag.startX, drag.startY, e.clientX, e.clientY);
+        }
+        return;
       }
       // Treat as click/select when the pointer barely moved.
       if (!drag.moved && drag.button === 0 && e.type !== "pointercancel") {
@@ -248,22 +358,36 @@ export function BatchReviewPreview() {
           return;
         }
         if (reviewSelectionMode === "subtract") deselectReviewLayer(layerId);
+        else if (reviewSelectionMode === "area-subtract") {
+          // A click without drag never deselects in area mode; ignore it.
+          return;
+        }
         else if (e.ctrlKey || e.metaKey || e.shiftKey) toggleReviewLayer(layerId);
         else selectReviewLayer(layerId);
       }
     },
-    [getLayerIdFromTarget, selectReviewLayer, setViewportCursor, toggleReviewLayer, deselectReviewLayer, reviewSelectionMode, reviewPickColorMode, pickReviewColor],
+    [getLayerIdFromTarget, selectReviewLayer, setViewportCursor, toggleReviewLayer, deselectReviewLayer, reviewSelectionMode, reviewPickColorMode, pickReviewColor, hideMarquee, applyAreaDeselect],
   );
 
   // Esc exits the color picker so a stray pipette cannot swallow later clicks.
   useEffect(() => {
-    if (!reviewPickColorMode) return;
+    if (!reviewPickColorMode && reviewSelectionMode !== "area-subtract") return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setReviewPickColorMode(false);
+      if (e.key !== "Escape") return;
+      if (reviewPickColorMode) setReviewPickColorMode(false);
+      if (reviewSelectionMode === "area-subtract") setReviewSelectionMode("select");
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [reviewPickColorMode, setReviewPickColorMode]);
+  }, [reviewPickColorMode, reviewSelectionMode, setReviewPickColorMode, setReviewSelectionMode]);
+
+  // Leaving area mode always drops any half-drawn marquee.
+  useEffect(() => {
+    if (reviewSelectionMode === "area-subtract") return;
+    hideMarquee();
+    dragRef.current.marquee = false;
+    dragRef.current.active = false;
+  }, [reviewSelectionMode, hideMarquee]);
 
   useEffect(() => {
     const el = viewportRef.current;
@@ -390,12 +514,18 @@ export function BatchReviewPreview() {
       <div
         ref={viewportRef}
         className="relative flex-1 min-h-[420px] overflow-hidden select-none"
-        style={{ ...CANVAS_BG[reviewCanvas], cursor: reviewSelectionMode === "subtract" || reviewPickColorMode ? "crosshair" : "grab", touchAction: "none" }}
+        style={{ ...CANVAS_BG[reviewCanvas], cursor: reviewSelectionMode !== "select" || reviewPickColorMode ? "crosshair" : "grab", touchAction: "none" }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={endPointerDrag}
         onPointerCancel={endPointerDrag}
       >
+        {/* Area-deselect marquee rectangle (positioned via direct DOM writes) */}
+        <div
+          ref={marqueeRef}
+          className="pointer-events-none absolute z-10 hidden border-2 border-violet-400 bg-violet-500/20"
+          style={{ display: "none" }}
+        />
         {svgText ? (
           <div
             ref={transformLayerRef}
@@ -437,9 +567,11 @@ export function BatchReviewPreview() {
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 max-w-[calc(100%-24px)] px-3 py-1.5 rounded-full bg-black/60 text-[11px] text-white/90 text-center pointer-events-none">
             {reviewPickColorMode
               ? "Pipette active · click an object to copy its color (selection kept) · Esc to stop"
-              : reviewSelectionMode === "subtract"
-                ? "Click selected objects to deselect · other selections are kept · drag to pan"
-                : "Click to select · Ctrl/Cmd or Shift+click to add/remove · drag to pan · scroll to zoom"}
+              : reviewSelectionMode === "area-subtract"
+                ? "Area deselect · drag a box over selected objects to release them · Esc to finish"
+                : reviewSelectionMode === "subtract"
+                  ? "Click selected objects to deselect · other selections are kept · drag to pan"
+                  : "Click to select · Ctrl/Cmd or Shift+click to add/remove · drag to pan · scroll to zoom"}
           </div>
         )}
       </div>

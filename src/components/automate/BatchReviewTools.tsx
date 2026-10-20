@@ -18,6 +18,7 @@ import {
   ListMinus,
   X,
   PaintBucket,
+  RectangleHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
@@ -80,6 +81,7 @@ export function BatchReviewTools() {
   const canAct = !!item && !!reviewSelectedLayerId;
   const hasSelection = !!item && reviewSelectedLayerIds.length > 0;
   const isDeselecting = reviewSelectionMode === "subtract";
+  const isAreaDeselecting = reviewSelectionMode === "area-subtract";
   const canUndo = !!item && item.history.length > 0;
   const isRejected = item?.status === "skipped";
   const pickerHex = normalizeReviewColorInput(reviewEditColor);
@@ -188,6 +190,21 @@ export function BatchReviewTools() {
           <Button
             variant="outline"
             size="sm"
+            disabled={!item}
+            aria-pressed={isAreaDeselecting}
+            onClick={() => setReviewSelectionMode(isAreaDeselecting ? "select" : "area-subtract")}
+            className={cn(
+              "flex-1 rounded-xl text-xs font-semibold",
+              isAreaDeselecting && "border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:text-violet-800",
+            )}
+            title="Drag a box over the canvas: every selected object it touches leaves the selection."
+          >
+            <RectangleHorizontal className="w-3.5 h-3.5 mr-1" />
+            {isAreaDeselecting ? "Done area" : "Area deselect"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             disabled={!hasSelection}
             onClick={clearReviewSelection}
             className="rounded-xl px-2"
@@ -198,9 +215,11 @@ export function BatchReviewTools() {
           </Button>
         </div>
         <p className="text-[10px] leading-relaxed text-muted-foreground">
-          {isDeselecting
-            ? "Click selected objects to deselect them. Others stay selected. Use Delete selected to delete only the remaining selection."
-            : "Ctrl/Cmd or Shift+click adds or removes one object without clearing the others. Deselect mode also works with touch."}
+          {isAreaDeselecting
+            ? "Drag a box: every selected object it touches is released; objects outside stay selected. Drops work on multiple boxes until Done."
+            : isDeselecting
+              ? "Click selected objects to deselect them. Others stay selected. Use Delete selected to delete only the remaining selection."
+              : "Ctrl/Cmd or Shift+click adds or removes one object without clearing the others. Deselect mode also works with touch."}
         </p>
       </div>
 
