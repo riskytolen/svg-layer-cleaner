@@ -89,14 +89,16 @@ function isEmptyGroup(element: Element): boolean {
       // check if it's a valid visual element
       if (tag === "path") {
         const d = child.getAttribute("d");
-        if (d && d.trim() !== "") return true;
-      } else {
-        return true;
+        if (d && d.trim() !== "") return false;
+        // invalid empty path still counts as "no visual content" here;
+        // removeEmptyPaths/delete-empty-paths handles the node itself.
+        continue;
       }
+      return false;
     }
 
     // nested group
-    if (tag === "g" && !isEmptyGroup(child)) return true;
+    if (tag === "g" && !isEmptyGroup(child)) return false;
   }
 
   return true;
