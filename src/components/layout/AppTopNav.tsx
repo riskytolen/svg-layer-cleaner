@@ -20,7 +20,7 @@ export function AppTopNav({ activeRoute }: { activeRoute: "manual" | "automate" 
             <Layers className="w-4.5 h-4.5 text-white" strokeWidth={2.25} />
           </span>
           <span className="leading-tight">
-            <span className="block text-sm font-bold tracking-tight">SVG Layer Cleaner</span>
+            <span className="block text-sm font-bold tracking-tight">SVG EDITOR</span>
             <span className="block text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
               Background Remover Studio
             </span>
