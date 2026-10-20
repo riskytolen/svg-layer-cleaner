@@ -23,6 +23,21 @@ import { adjustLayerSelection, subtractLayerSelection } from "@/lib/svg/layerSel
 import { applyColorToLayers } from "@/lib/svg/reviewColor";
 import { normalizeReviewColorInput } from "@/lib/svg/reviewColorCore";
 import type { ReviewColorProperty } from "@/lib/svg/reviewColorCore";
+import {
+  ReviewExportScope,
+  ReviewProjectFile,
+  SerializedProjectOptions,
+  buildProjectFileName,
+  sanitizeReviewOptions,
+  selectExportableReviewItems,
+  serializeReviewProject,
+  validateReviewProjectFile,
+} from "@/lib/project/reviewProject";
+import {
+  deleteAutosaveProject,
+  loadAutosaveProject,
+  saveAutosaveProject,
+} from "@/lib/project/projectAutosave";
 
 export type ResultFilter = "all" | "success" | "failed" | "skipped" | "processing";
 
@@ -72,6 +87,19 @@ type BatchAutomationStore = {
   reviewSearchQuery: string;
   reviewFilter: ReviewFilter;
   reviewLastAction: string | null;
+
+  // Project save/restore state
+  /** Whether final export takes only assets marked reviewed, or all non-rejected ones. */
+  reviewExportScope: ReviewExportScope;
+  /** Autosave status pill shown in the review workspace. */
+  autosaveState: "idle" | "saving" | "saved" | "error";
+  autosaveError: string | null;
+  /** Non-null when a resumable draft exists in IndexedDB. */
+  hasAutosaveDraft: boolean;
+  autosaveDraftMeta: { itemCount: number; savedAt: number; sourceName: string | null } | null;
+  isRestoringProject: boolean;
+  /** Project label used for the saved file name (input folder name). */
+  projectSourceName: string | null;
 
   // Actions
   selectInputFolder: (handle: any) => void;
@@ -123,6 +151,19 @@ type BatchAutomationStore = {
   restoreActiveSkipped: () => void;
   setReviewSearchQuery: (query: string) => void;
   setReviewFilter: (filter: ReviewFilter) => void;
+  // Project save/restore actions
+  setReviewExportScope: (scope: ReviewExportScope) => void;
+  setAutosaveStatus: (status: "idle" | "saving" | "saved" | "error", error?: string | null) => void;
+  /** Called after a successful draft write so the header pill/banner stay in sync. */
+  recordAutosaveSaved: (project: ReviewProjectFile) => void;
+  checkAutosaveDraft: () => Promise<void>;
+  continueAutosavedProject: () => Promise<void>;
+  discardAutosave: () => Promise<void>;
+  saveProjectFile: () => void;
+  openProjectFile: (file: File) => Promise<void>;
+  /** Drop-in restore shared by autosave + project-file flows; false when unusable. */
+  restoreReviewProject: (project: ReviewProjectFile, source: "autosave" | "file") => boolean;
+  buildReviewProjectFile: () => ReviewProjectFile | null;
   exportReviewedBatch: () => Promise<void>;
 };
 
@@ -176,6 +217,14 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
   reviewSearchQuery: "",
   reviewFilter: "all",
   reviewLastAction: null,
+
+  reviewExportScope: "reviewed-only",
+  autosaveState: "idle",
+  autosaveError: null,
+  hasAutosaveDraft: false,
+  autosaveDraftMeta: null,
+  isRestoringProject: false,
+  projectSourceName: null,
 
   selectInputFolder: (handle) => {
     set((state) => ({
@@ -318,7 +367,13 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
       reviewEditColor: null,
       reviewFilter: "all",
       reviewLastAction: null,
+      isRestoringProject: false,
+      autosaveState: "idle",
+      autosaveError: null,
+      autosaveDraftMeta: null,
     });
+    // The IndexedDB draft may still exist — re-check so the resume banner can reappear.
+    void get().checkAutosaveDraft();
   },
 
   addLog: (entry) => {
@@ -421,6 +476,13 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
       reviewPickColorMode: false,
       reviewColorProperty: "fill",
       reviewEditColor: null,
+      autosaveState: "idle",
+      autosaveError: null,
+      isRestoringProject: false,
+      projectSourceName:
+        state.options.inputFolderHandle && typeof state.options.inputFolderHandle.name === "string"
+          ? state.options.inputFolderHandle.name
+          : null,
     });
 
     const { files, options } = get();
@@ -488,7 +550,8 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
   },
 
   exitReviewMode: () => {
-    set({
+    // Keep the autosave draft so the user can resume this session later.
+    set((state) => ({
       isReviewMode: false,
       reviewItems: [],
       activeReviewId: null,
@@ -499,7 +562,11 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
       reviewPickColorMode: false,
       reviewColorProperty: "fill",
       reviewEditColor: null,
-    });
+      autosaveState: "idle",
+      autosaveError: null,
+      isRestoringProject: false,
+      projectSourceName: state.projectSourceName,
+    }));
   },
 
   selectReviewItem: (id) => {
@@ -842,18 +909,291 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
   setReviewSearchQuery: (query) => set({ reviewSearchQuery: query }),
   setReviewFilter: (filter) => set({ reviewFilter: filter }),
 
+  // ---------- Project save/restore ----------
+
+  setReviewExportScope: (scope) => {
+    if (get().reviewExportScope === scope) return;
+    set({ reviewExportScope: scope });
+    const { exportable, pendingCount, reviewedCount } = selectExportableReviewItems(get().reviewItems, scope);
+    set({
+      reviewLastAction:
+        scope === "reviewed-only"
+          ? `Export scope: reviewed only — ${reviewedCount} reviewed asset${reviewedCount > 1 ? "s" : ""} will be exported.`
+          : `Export scope: all eligible — ${exportable.length} asset${exportable.length > 1 ? "s" : ""}, incl. ${pendingCount} still pending review.`,
+    });
+  },
+
+  setAutosaveStatus: (status, error) => {
+    set({ autosaveState: status, autosaveError: error ?? null });
+  },
+
+  recordAutosaveSaved: (project) => {
+    set({
+      autosaveState: "saved",
+      autosaveError: null,
+      hasAutosaveDraft: true,
+      autosaveDraftMeta: {
+        itemCount: project.items.length,
+        savedAt: project.savedAt,
+        sourceName: project.sourceName,
+      },
+    });
+  },
+
+  checkAutosaveDraft: async () => {
+    try {
+      const project = await loadAutosaveProject();
+      if (project) {
+        set({
+          hasAutosaveDraft: true,
+          autosaveDraftMeta: {
+            itemCount: project.items.length,
+            savedAt: project.savedAt,
+            sourceName: project.sourceName,
+          },
+        });
+      } else {
+        set({ hasAutosaveDraft: false, autosaveDraftMeta: null });
+      }
+    } catch {
+      // Storage unavailable (private mode, quota...) — no resume banner.
+      set({ hasAutosaveDraft: false, autosaveDraftMeta: null });
+    }
+  },
+
+  continueAutosavedProject: async () => {
+    set({ isRestoringProject: true });
+    try {
+      const project = await loadAutosaveProject();
+      if (!project) {
+        set({ isRestoringProject: false, hasAutosaveDraft: false, autosaveDraftMeta: null });
+        get().addLog({ level: "error", message: "Autosave draft is missing or damaged — nothing was restored." });
+        return;
+      }
+      get().restoreReviewProject(project, "autosave");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      get().addLog({ level: "error", message: `Cannot open autosave draft: ${msg}` });
+    } finally {
+      set({ isRestoringProject: false });
+    }
+  },
+
+  discardAutosave: async () => {
+    try {
+      await deleteAutosaveProject();
+    } catch {
+      // Removing a stub storage entry is best effort; banner state is authoritative.
+    }
+    set({ hasAutosaveDraft: false, autosaveDraftMeta: null, autosaveState: "idle", autosaveError: null, reviewLastAction: "Autosave draft deleted." });
+    get().addLog({ level: "info", message: "Autosave draft deleted." });
+  },
+
+  saveProjectFile: () => {
+    const file = get().buildReviewProjectFile();
+    if (!file) {
+      get().addLog({ level: "error", message: "Nothing to save — the review queue is empty." });
+      return;
+    }
+    try {
+      const serialized = JSON.stringify(file, null, 2);
+      const blob = new Blob([serialized], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = buildProjectFileName(file.sourceName);
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+      set({ reviewLastAction: `Project saved: ${anchor.download} (${file.items.length} asset${file.items.length > 1 ? "s" : ""}).` });
+      get().addLog({
+        level: "success",
+        message: `Project saved: ${anchor.download} — ${file.items.length} assets, up to ${Math.max(
+          0,
+          ...file.items.map((i) => i.history.length),
+        )} undo steps per asset.`,
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      get().addLog({ level: "error", message: `Project save failed: ${msg}` });
+    }
+  },
+
+  openProjectFile: async (file) => {
+    const state = get();
+    if (state.isReviewMode && state.reviewItems.length > 0) {
+      const okToReplace = window.confirm(
+        "Opening a project replaces the current review session. Continue?",
+      );
+      if (!okToReplace) return;
+    }
+    set({ isRestoringProject: true });
+    try {
+      const text = await file.text();
+      let raw: unknown;
+      try {
+        raw = JSON.parse(text);
+      } catch {
+        throw new Error(`${file.name} is not a valid JSON project file.`);
+      }
+      const res = validateReviewProjectFile(raw);
+      if (!res.ok) {
+        get().addLog({ level: "error", message: `Project rejected — ${res.error}` });
+        return;
+      }
+      get().restoreReviewProject(res.project, "file");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      get().addLog({ level: "error", message: `Cannot open project: ${msg}` });
+    } finally {
+      set({ isRestoringProject: false });
+    }
+  },
+
+  restoreReviewProject: (project, source) => {
+    // Parse each stored SVG; damaged assets are skipped so one bad file
+    // never destroys the whole restore.
+    const restored: BatchReviewItem[] = [];
+    let failed = 0;
+    for (const saved of project.items) {
+      try {
+        const doc = parseSvg(saved.svgText);
+        const root = doc?.documentElement;
+        if (!root || root.tagName.toLowerCase() !== "svg") {
+          failed++;
+          continue;
+        }
+        restored.push({
+          ...saved,
+          doc,
+          inputPath: saved.inputPath ?? "",
+          beforeSize: saved.beforeSize ?? saved.svgText.length,
+          removedColors: saved.removedColors,
+        });
+      } catch {
+        failed++;
+      }
+    }
+    if (restored.length === 0) {
+      get().addLog({
+        level: "error",
+        message: `Project restore failed — ${project.items.length} asset${project.items.length > 1 ? "s" : ""} could not be parsed. The current session is unchanged.`,
+      });
+      return false;
+    }
+
+    const activeIndex =
+      project.activeItemIndex != null && project.activeItemIndex < restored.length ? project.activeItemIndex : 0;
+    const activeItem = restored[activeIndex];
+    // Only the active asset's stored selection is global in the store.
+    const selection = project.activeSelection;
+    const restoredLayerIds = project.activeItemIndex === activeIndex ? selection?.layerIds ?? [] : [];
+    const restoredLayerId = project.activeItemIndex === activeIndex ? selection?.layerId ?? null : null;
+    const validFilters = ["all", "pending", "reviewed", "skipped", "ambiguous"];
+
+    set({
+      isReviewMode: true,
+      reviewItems: restored,
+      activeReviewId: activeItem.id,
+      reviewSelectedLayerId: restoredLayerId && restoredLayerIds.includes(restoredLayerId) ? restoredLayerId : null,
+      reviewSelectedLayerIds: restoredLayerId && !restoredLayerIds.includes(restoredLayerId) ? [restoredLayerId] : restoredLayerIds,
+      reviewSelectionMode: "select",
+      reviewPickColorMode: false,
+      reviewColorProperty: project.reviewColorProperty,
+      reviewEditColor: project.reviewEditColor,
+      reviewSearchQuery: project.reviewSearchQuery,
+      reviewFilter: validFilters.includes(project.reviewFilter) ? (project.reviewFilter as ReviewFilter) : "all",
+      reviewExportScope: project.exportScope,
+      reviewLastAction:
+        source === "autosave"
+          ? `Autosaved session restored — ${restored.length} asset${restored.length > 1 ? "s" : ""} ready.`
+          : `Project opened — ${restored.length} asset${restored.length > 1 ? "s" : ""} ready.`,
+      projectSourceName: project.sourceName,
+      options: {
+        ...get().options,
+        ...project.options,
+        // Folder handles are browser-permission objects, never serializable.
+        inputFolderHandle: get().options.inputFolderHandle,
+        outputFolderHandle: get().options.outputFolderHandle,
+      },
+      hasAutosaveDraft: true,
+      autosaveDraftMeta: {
+        itemCount: restored.length,
+        savedAt: project.savedAt,
+        sourceName: project.sourceName,
+      },
+    });
+
+    if (failed > 0) {
+      get().addLog({
+        level: "warning",
+        message: `${failed} asset${failed > 1 ? "s" : ""} in the project file could not be restored and were skipped.`,
+      });
+    }
+    get().addLog({
+      level: "success",
+      message: `Project ${source === "autosave" ? "restored from autosave" : "opened"}: ${restored.length} assets continue from ${new Date(project.savedAt).toLocaleString()}.`,
+    });
+    return true;
+  },
+
+  buildReviewProjectFile: () => {
+    const s = get();
+    if (s.reviewItems.length === 0) return null;
+    const activeItemIndex = s.activeReviewId ? s.reviewItems.findIndex((r) => r.id === s.activeReviewId) : null;
+    const options: SerializedProjectOptions = {
+      exportFormats: [...s.options.exportFormats],
+      autoResize2500: s.options.autoResize2500,
+      quickClean: s.options.quickClean,
+      removeWhiteBackground: s.options.removeWhiteBackground,
+      backgroundMode: s.options.backgroundMode,
+      backgroundColorTolerance: s.options.backgroundColorTolerance,
+      firstPathScope: s.options.firstPathScope,
+      onlyDeleteIfWhiteLike: s.options.onlyDeleteIfWhiteLike,
+      whiteTolerance: s.options.whiteTolerance,
+      cleanPngResidual: s.options.cleanPngResidual,
+      pngResidualTolerance: s.options.pngResidualTolerance,
+      skipSystemLayers: s.options.skipSystemLayers,
+      overwriteExisting: s.options.overwriteExisting,
+      pngTransparent: s.options.pngTransparent,
+      jpgQuality: s.options.jpgQuality,
+      manualReview: s.options.manualReview,
+      reviewColorTolerance: s.options.reviewColorTolerance,
+      reviewCanvas: s.options.reviewCanvas,
+    };
+    return serializeReviewProject({
+      sourceName: s.projectSourceName,
+      items: s.reviewItems,
+      activeItemIndex: activeItemIndex != null && activeItemIndex >= 0 ? activeItemIndex : null,
+      activeSelection: {
+        layerId: s.reviewSelectedLayerId,
+        layerIds: [...s.reviewSelectedLayerIds],
+      },
+      exportScope: s.reviewExportScope,
+      reviewFilter: s.reviewFilter,
+      reviewSearchQuery: s.reviewSearchQuery,
+      reviewColorProperty: s.reviewColorProperty,
+      reviewEditColor: s.reviewEditColor,
+      options,
+    });
+  },
+
   exportReviewedBatch: async () => {
     const state = get();
     if (!state.options.outputFolderHandle) {
       get().addLog({ level: "error", message: "Please select an output folder first." });
       return;
     }
-    const exportable = state.reviewItems.filter((r) => r.status !== "skipped");
+    const { exportable, pendingCount } = selectExportableReviewItems(state.reviewItems, state.reviewExportScope);
     if (exportable.length === 0) {
-      get().addLog({ level: "error", message: "Nothing to export — all review items are skipped." });
+      const reason =
+        state.reviewExportScope === "reviewed-only"
+          ? "no assets are marked reviewed yet"
+          : "all review items are rejected or skipped";
+      get().addLog({ level: "error", message: `Nothing to export — ${reason}.` });
       return;
     }
-    const pending = exportable.filter((r) => r.status === "pending-review").length;
 
     set({
       isRunning: true,
@@ -866,8 +1206,12 @@ export const useBatchAutomationStore = create<BatchAutomationStore>((set, get) =
       isLogExpanded: false,
     });
 
-    if (pending > 0) {
-      get().addLog({ level: "warning", message: `${pending} asset${pending > 1 ? "s" : ""} not marked reviewed — exporting anyway.` });
+    get().addLog({
+      level: "info",
+      message: `Export scope: ${state.reviewExportScope === "reviewed-only" ? "reviewed only" : "all eligible"} — ${exportable.length} asset${exportable.length > 1 ? "s" : ""}.`,
+    });
+    if (pendingCount > 0) {
+      get().addLog({ level: "warning", message: `${pendingCount} asset${pendingCount > 1 ? "s" : ""} not marked reviewed — exporting anyway.` });
     }
 
     const { options } = get();

@@ -8,11 +8,14 @@ import { BatchSummary } from "./BatchSummary";
 import { BatchLogPanel } from "./BatchLogPanel";
 import { RunControlPanel } from "./RunControlPanel";
 import { BatchReviewWorkspace } from "./BatchReviewWorkspace";
+import { useReviewAutosave } from "./useReviewAutosave";
 import { useBatchAutomationStore } from "@/store/batchAutomationStore";
-import { Loader2, WandSparkles } from "lucide-react";
+import { Loader2, WandSparkles, History, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 
 export function AutomatePanel() {
+  useReviewAutosave();
   const isRunning = useBatchAutomationStore((s) => s.isRunning);
   const isPaused = useBatchAutomationStore((s) => s.isPaused);
   const isScanning = useBatchAutomationStore((s) => s.isScanning);
@@ -106,6 +109,9 @@ export function AutomatePanel() {
           </div>
         </section>
 
+        {/* Resume autosaved review, when the workspace is not open */}
+        <AutosaveResumeBanner />
+
         {/* Manual review workspace (after auto clean, before final export) */}
         <BatchReviewWorkspace />
 
@@ -119,5 +125,64 @@ export function AutomatePanel() {
         <BatchLogPanel />
       </div>
     </div>
+  );
+}
+
+function AutosaveResumeBanner() {
+  const hasAutosaveDraft = useBatchAutomationStore((s) => s.hasAutosaveDraft);
+  const autosaveDraftMeta = useBatchAutomationStore((s) => s.autosaveDraftMeta);
+  const isReviewMode = useBatchAutomationStore((s) => s.isReviewMode);
+  const isRunning = useBatchAutomationStore((s) => s.isRunning);
+  const isScanning = useBatchAutomationStore((s) => s.isScanning);
+  const isPreparingReview = useBatchAutomationStore((s) => s.isPreparingReview);
+  const isRestoringProject = useBatchAutomationStore((s) => s.isRestoringProject);
+  const continueAutosavedProject = useBatchAutomationStore((s) => s.continueAutosavedProject);
+  const discardAutosave = useBatchAutomationStore((s) => s.discardAutosave);
+
+  if (!hasAutosaveDraft || isReviewMode) return null;
+  const busy = isRunning || isPreparingReview || isScanning || isRestoringProject;
+
+  return (
+    <section className="rounded-2xl border-2 border-violet-200 bg-gradient-to-r from-violet-50/80 to-transparent p-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="w-10 h-10 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center shrink-0 border border-violet-200">
+          <History className="w-5 h-5" strokeWidth={2} />
+        </span>
+        <div className="min-w-0">
+          <h3 className="text-sm font-bold tracking-tight">Continue previous review?</h3>
+          <p className="text-xs text-muted-foreground tabular-nums">
+            {autosaveDraftMeta
+              ? `${autosaveDraftMeta.itemCount} asset${autosaveDraftMeta.itemCount > 1 ? "s" : ""} · autosaved ${new Date(autosaveDraftMeta.savedAt).toLocaleString()}${autosaveDraftMeta.sourceName ? ` · ${autosaveDraftMeta.sourceName}` : ""}`
+              : "An autosaved review session is waiting in this browser."}
+          </p>
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={discardAutosave}
+            disabled={busy}
+            className="rounded-xl px-2.5"
+            title="Delete the autosave draft without opening it"
+            aria-label="Delete autosave draft"
+          >
+            <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+          </Button>
+          <Button
+            size="sm"
+            onClick={continueAutosavedProject}
+            disabled={busy}
+            className="rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold shadow-[0_2px_8px_rgba(124,58,237,0.35)]"
+          >
+            {isRestoringProject ? (
+              <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+            ) : (
+              <History className="w-3.5 h-3.5 mr-1.5" />
+            )}
+            Continue review
+          </Button>
+        </div>
+      </div>
+    </section>
   );
 }
