@@ -2,59 +2,87 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Global design tokens — professional dark-editor theme.
+ * Paddings, controls and chrome are tuned for a compact desktop layout.
+ */
 :root {
-  --radius: 0.5rem;
-  --background: #f5f6f8;
-  --foreground: #1a1a2e;
-  --card: #ffffff;
-  --card-foreground: #1a1a2e;
-  --popover: #ffffff;
-  --popover-foreground: #1a1a2e;
-  --primary: #d35400;
+  --radius: 0.375rem;
+
+  /* App + editor surfaces */
+  --background: #17171a;
+  --foreground: #ececef;
+  --card: #222225;
+  --card-foreground: #ececef;
+  --popover: #2a2a2f;
+  --popover-foreground: #ececef;
+
+  /* Brand + status */
+  --primary: #e86a1f;
   --primary-foreground: #ffffff;
-  --secondary: #e67e22;
-  --secondary-foreground: #ffffff;
-  --muted: #f1f5f9;
-  --muted-foreground: #64748b;
-  --accent: #06b6d4;
-  --accent-foreground: #ffffff;
+  --secondary: #2f2f35;
+  --secondary-foreground: #e3e3e8;
+  --muted: #2b2b30;
+  --muted-foreground: #9898a2;
+  --accent: #28b9d6;
+  --accent-foreground: #0b2126;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
-  --border: #e2e8f0;
-  --input: #e2e8f0;
-  --ring: #d35400;
+
+  /* Lines + focus */
+  --border: #35353b;
+  --input: #3b3b42;
+  --ring: #e86a1f;
+
+  /* Editor chrome */
+  --surface: #1d1d21;          /* side panels / rails */
+  --canvas: #121214;           /* workspace behind artboard */
+  --elevated: #2e2e34;         /* floating bars, popovers */
+  --hairline: #2e2e34;
+  --editor-status: #1d1d21;
 }
 
+/* Keep the legacy `.dark` hook in sync with the dark-first root theme. */
 .dark {
-  --background: #0f172a;
-  --foreground: #f8fafc;
-  --card: #1e293b;
-  --card-foreground: #f8fafc;
-  --popover: #1e293b;
-  --popover-foreground: #f8fafc;
-  --primary: #d35400;
+  --background: #17171a;
+  --foreground: #ececef;
+  --card: #222225;
+  --card-foreground: #ececef;
+  --popover: #2a2a2f;
+  --popover-foreground: #ececef;
+  --primary: #e86a1f;
   --primary-foreground: #ffffff;
-  --secondary: #e67e22;
-  --secondary-foreground: #ffffff;
-  --muted: #1e293b;
-  --muted-foreground: #94a3b8;
-  --accent: #06b6d4;
-  --accent-foreground: #ffffff;
+  --secondary: #2f2f35;
+  --secondary-foreground: #e3e3e8;
+  --muted: #2b2b30;
+  --muted-foreground: #9898a2;
+  --accent: #28b9d6;
+  --accent-foreground: #0b2126;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
-  --border: #334155;
-  --input: #334155;
-  --ring: #d35400;
+  --border: #35353b;
+  --input: #3b3b42;
+  --ring: #e86a1f;
+}
+
+:root {
+  --thickness: 1px;
 }
 
 * {
   border-color: var(--border);
 }
 
+html,
+body {
+  height: 100%;
+}
+
 body {
   background-color: var(--background);
   color: var(--foreground);
   font-family: system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 @theme inline {
@@ -77,6 +105,10 @@ body {
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-surface: var(--surface);
+  --color-canvas: var(--canvas);
+  --color-elevated: var(--elevated);
+  --color-hairline: var(--hairline);
   --radius: var(--radius);
 }
 
@@ -85,25 +117,120 @@ body {
   padding-inline: 1rem;
 }
 
-/* Checkerboard background for SVG preview */
-.checkerboard {
-  background-image:
-    linear-gradient(45deg, #e5e7eb 25%, transparent 25%),
-    linear-gradient(-45deg, #e5e7eb 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #e5e7eb 75%),
-    linear-gradient(-45deg, transparent 75%, #e5e7eb 75%);
-  background-size: 20px 20px;
-  background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+/* ---------- Panel chrome ---------- */
+
+/* Flat, sectioned panel used across editor + automation workspace */
+.panel {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
 }
 
-/* SVG selection highlight */
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.625rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  background: #26262b;
+}
+
+.hairline-r {
+  border-right: 1px solid var(--border);
+}
+.hairline-l {
+  border-left: 1px solid var(--border);
+}
+.hairline-b {
+  border-bottom: 1px solid var(--border);
+}
+.hairline-t {
+  border-top: 1px solid var(--border);
+}
+
+/* Workspace behind artboards — subtle dot grid */
+.workspace-canvas {
+  background-color: var(--canvas);
+  background-image: radial-gradient(circle at 1px 1px, #26262b 1px, transparent 0);
+  background-size: 22px 22px;
+}
+
+/* Status strip along the bottom of editor workspaces */
+.status-strip {
+  height: 1.5rem;
+  background-color: var(--editor-status);
+  border-top: 1px solid var(--border);
+  color: var(--muted-foreground);
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-inline: 0.75rem;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* ---------- Scrollbars (dark, slim) ---------- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #3f3f47 transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: #3b3b42;
+  border: 2px solid transparent;
+  background-clip: content-box;
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #4a4a53;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+/* ---------- SVG preview helpers ---------- */
+
+/* Checkerboard for transparency areas (mid-grey, reads on dark chrome) */
+.checkerboard {
+  background-image:
+    linear-gradient(45deg, #3a3a42 25%, transparent 25%),
+    linear-gradient(-45deg, #3a3a42 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #3a3a42 75%),
+    linear-gradient(-45deg, transparent 75%, #3a3a42 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+  background-color: #2f2f35;
+}
+
+/* SVG selection highlight (cyan, doubles as accent selection across the app) */
 .svg-layer-selected {
-  outline: 2px solid #06b6d4;
+  outline: 2px solid #28b9d6;
   outline-offset: 1px;
 }
 
 .svg-layer-multi-selected {
-  outline: 2px dashed #06b6d4;
+  outline: 2px dashed #28b9d6;
   outline-offset: 1px;
-  opacity: 0.7;
+  opacity: 0.75;
+}
+
+/* Focus visibility on dark chrome */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--ring) 70%, transparent);
+  outline-offset: 1px;
 }

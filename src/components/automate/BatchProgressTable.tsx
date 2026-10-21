@@ -23,11 +23,11 @@ const STATUS_MAP: Record<
   string,
   { label: string; icon: typeof CheckCircle2; pill: string; dot: string }
 > = {
-  pending: { label: "Pending", icon: Clock, pill: "bg-slate-100 text-slate-600 border-slate-200", dot: "bg-slate-400" },
-  processing: { label: "Processing", icon: Loader2, pill: "bg-blue-50 text-blue-700 border-blue-200", dot: "bg-blue-500 animate-pulse" },
-  success: { label: "Success", icon: CheckCircle2, pill: "bg-emerald-50 text-emerald-700 border-emerald-200", dot: "bg-emerald-500" },
-  failed: { label: "Failed", icon: XCircle, pill: "bg-red-50 text-red-700 border-red-200", dot: "bg-red-500" },
-  skipped: { label: "Skipped", icon: SkipForward, pill: "bg-amber-50 text-amber-700 border-amber-200", dot: "bg-amber-500" },
+  pending: { label: "Pending", icon: Clock, pill: "bg-zinc-500/10 text-zinc-400 border-zinc-500/25", dot: "bg-zinc-400" },
+  processing: { label: "Processing", icon: Loader2, pill: "bg-blue-500/10 text-blue-400 border-blue-500/25", dot: "bg-blue-400 animate-pulse" },
+  success: { label: "Success", icon: CheckCircle2, pill: "bg-emerald-500/10 text-emerald-400 border-emerald-500/25", dot: "bg-emerald-400" },
+  failed: { label: "Failed", icon: XCircle, pill: "bg-red-500/10 text-red-400 border-red-500/25", dot: "bg-red-400" },
+  skipped: { label: "Skipped", icon: SkipForward, pill: "bg-amber-500/10 text-amber-400 border-amber-500/25", dot: "bg-amber-400" },
 };
 
 const FILTER_TABS: { value: ResultFilter; label: string }[] = [
@@ -94,7 +94,7 @@ export function BatchProgressTable() {
   const TH = "px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground whitespace-nowrap";
 
   return (
-    <section className="rounded-2xl border border-border bg-card shadow-[0_1px_2px_rgba(16,24,40,0.05)] overflow-hidden">
+    <section className="rounded-lg border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.35)] overflow-hidden">
       {/* Header */}
       <div className="px-5 pt-5 pb-4 border-b border-border">
         <div className="flex items-center gap-2.5 flex-wrap">
@@ -109,7 +109,7 @@ export function BatchProgressTable() {
             </p>
           </div>
           {isRunning && (
-            <span className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 border border-blue-200 text-[11px] font-semibold text-blue-700">
+            <span className="ml-auto flex items-center gap-1.5 px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/25 text-[11px] font-semibold text-blue-400 tabular-nums">
               <Loader2 className="w-3 h-3 animate-spin" />
               Live
             </span>
@@ -117,7 +117,7 @@ export function BatchProgressTable() {
         </div>
 
         {isRunning && (
-          <div className="mt-3 h-1.5 rounded-full bg-slate-200 overflow-hidden">
+          <div className="mt-3 h-1.5 rounded-full bg-[#33333a] overflow-hidden">
             <div
               className="h-full rounded-full bg-gradient-to-r from-orange-500 to-orange-600 transition-all duration-300"
               style={{ width: `${percentage}%` }}
@@ -159,8 +159,8 @@ export function BatchProgressTable() {
             className={cn(
               "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer",
               hideSuccessful
-                ? "border-orange-300 bg-orange-50 text-orange-700"
-                : "border-border text-muted-foreground hover:text-foreground hover:border-slate-300",
+                ? "border-orange-500/40 bg-orange-500/10 text-orange-300"
+                : "border-border text-muted-foreground hover:text-foreground hover:border-[#4a4a54]",
             )}
           >
             {hideSuccessful ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -172,7 +172,7 @@ export function BatchProgressTable() {
       {/* Table */}
       <div className="max-h-[420px] sm:max-h-[520px] lg:max-h-[640px] overflow-auto">
         <table className="w-full text-[13px]">
-          <thead className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur border-b border-border">
+          <thead className="sticky top-0 z-10 bg-[#25252a]/95 backdrop-blur border-b border-border text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
             <tr>
               <th className={cn(TH, "w-12")}>#</th>
               <th className={TH}>File Name</th>
@@ -190,7 +190,7 @@ export function BatchProgressTable() {
             {paginatedResults.length === 0 ? (
               <tr>
                 <td colSpan={10} className="px-4 py-12 text-center">
-                  <FileSearch className="w-8 h-8 mx-auto text-slate-300" />
+                  <FileSearch className="w-8 h-8 mx-auto text-zinc-600" />
                   <p className="mt-2 text-sm font-semibold">No results found</p>
                   <p className="text-xs text-muted-foreground">Try a different search or filter.</p>
                 </td>
@@ -204,8 +204,8 @@ export function BatchProgressTable() {
                   <Fragment key={r.id}>
                     <tr
                       className={cn(
-                        "hover:bg-orange-50/40 cursor-pointer transition-colors",
-                        isExpanded && "bg-orange-50/40",
+                        "hover:bg-orange-500/5 cursor-pointer transition-colors",
+                        isExpanded && "bg-orange-500/5",
                       )}
                       onClick={() => setExpandedRowId(r.id)}
                     >
@@ -240,7 +240,7 @@ export function BatchProgressTable() {
                         </span>
                       </td>
                       <td className="px-4 py-2.5 text-muted-foreground max-w-[180px] truncate text-xs" title={r.error || r.warning || ""}>
-                        {r.error || r.warning || <span className="text-slate-300">—</span>}
+                        .{r.error || r.warning || <span className="text-zinc-600">—</span>}
                       </td>
                       <td className="px-2 py-2.5">
                         <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", isExpanded && "rotate-180")} />
@@ -280,7 +280,7 @@ export function BatchProgressTable() {
                               </div>
                             ))}
                             {(r.error || r.warning) && (
-                              <div className="col-span-2 md:col-span-4 rounded-lg bg-red-50 border border-red-100 px-3 py-2">
+                              <div className="col-span-2 md:col-span-4 rounded-md bg-red-500/10 border border-red-500/20 px-3 py-2">
                                 <dt className="text-[10px] font-bold uppercase tracking-[0.12em] text-red-600">
                                   {r.error ? "Error" : "Warning"}
                                 </dt>
@@ -301,7 +301,7 @@ export function BatchProgressTable() {
 
       {/* Pagination footer */}
       {filteredResults.length > 0 && (
-        <div className="flex items-center justify-between px-5 py-3 border-t border-border bg-slate-50/60 text-xs text-muted-foreground">
+        <div className="flex items-center justify-between px-4 py-2.5 border-t border-border bg-[#1d1d21] text-xs text-muted-foreground">
           <span className="tabular-nums">
             Showing {startIdx + 1}–{Math.min(startIdx + rowsPerPage, filteredResults.length)} of {filteredResults.length}
             {results.length !== filteredResults.length && ` (filtered from ${results.length})`}

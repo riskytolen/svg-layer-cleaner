@@ -160,10 +160,8 @@ export function SvgPreview() {
   return (
     <div
       ref={viewportRef}
-      className="w-full h-full overflow-hidden relative select-none"
+      className="w-full h-full overflow-hidden relative select-none workspace-canvas"
       style={{
-        background:
-          "repeating-conic-gradient(#e5e7eb 0% 25%, #fff 0% 50%) 50% / 20px 20px",
         cursor: isPanning ? "grabbing" : "grab",
       }}
       onMouseDown={handleMouseDown}
@@ -182,13 +180,14 @@ export function SvgPreview() {
           willChange: "transform",
         }}
       >
-        {/* SVG canvas at actual 2500x2500 size */}
+        {/* SVG artboard at actual 2500x2500 size */}
         <div
+          className="checkerboard"
           style={{
             width: SVG_CANVAS_SIZE,
             height: SVG_CANVAS_SIZE,
-            background: "white",
-            boxShadow: "0 2px 20px rgba(0,0,0,0.15)",
+            boxShadow:
+              "0 0 0 1px rgba(60,60,70,0.9), 0 4px 24px rgba(0,0,0,0.55), 0 0 0 6px rgba(255,255,255,0.02)",
           }}
           dangerouslySetInnerHTML={{ __html: svgText }}
         />

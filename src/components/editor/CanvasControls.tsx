@@ -33,7 +33,7 @@ export function CanvasControls() {
   const zoomPercent = Math.round(zoom * 100);
 
   return (
-    <div className="absolute bottom-3 right-3 flex items-center gap-1 bg-card border border-border rounded-lg shadow-lg px-1 py-1 z-10">
+    <div className="absolute bottom-3 right-3 flex items-center gap-0.5 bg-[#2a2a2f]/95 backdrop-blur border border-[#43434c] rounded-lg shadow-[0_4px_16px_rgba(0,0,0,0.5)] px-1 py-1 z-10">
       <Button
         variant="ghost"
         size="icon"

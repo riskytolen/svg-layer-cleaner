@@ -39,7 +39,7 @@ function Switch({
       onClick={() => onChange(!checked)}
       className={cn(
         "relative w-9 h-5 rounded-full transition-colors shrink-0 cursor-pointer",
-        checked ? "bg-orange-600" : "bg-slate-300",
+        checked ? "bg-orange-600" : "bg-[#4a4a52]",
       )}
     >
       <span
@@ -92,11 +92,11 @@ function SectionHeader({
 }) {
   return (
     <div className="flex items-center gap-2.5">
-      <span className={cn("w-8 h-8 rounded-lg border flex items-center justify-center shrink-0", accent)}>
+      <span className={cn("w-8 h-8 rounded-md border flex items-center justify-center shrink-0", accent)}>
         <Icon className="w-4 h-4" strokeWidth={2} />
       </span>
       <span>
-        <span className="block text-[11px] font-bold uppercase tracking-[0.14em] text-foreground">
+        <span className="block text-[10.5px] font-bold uppercase tracking-[0.14em] text-foreground/85">
           {title}
         </span>
         <span className="block text-[11px] text-muted-foreground">{desc}</span>
@@ -139,16 +139,16 @@ export function BatchOptionsPanel() {
   const updateOptions = useBatchAutomationStore((s) => s.updateOptions);
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] space-y-6 h-full">
+    <div className="rounded-lg border border-border bg-card p-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.35)] space-y-5 h-full">
       {/* Background removal */}
       <section className="space-y-3">
         <SectionHeader
           icon={Eraser}
           title="Background Removal"
           desc="Core white-background cleaning engine"
-          accent="bg-orange-50 text-orange-600 border-orange-100"
+          accent="text-orange-400 border-orange-500/30 bg-orange-500/10"
         />
-        <div className="rounded-xl bg-orange-50/50 border border-orange-100 px-3 divide-y divide-orange-100/70">
+        <div className="rounded-md bg-orange-500/5 border border-orange-500/20 px-3 divide-y divide-orange-500/15">
           <OptionRow
             icon={Eraser}
             title="Remove white background"
@@ -186,7 +186,7 @@ export function BatchOptionsPanel() {
                       className={cn(
                         "rounded-lg px-2 py-1.5 text-center transition-all cursor-pointer",
                         active
-                          ? "bg-card shadow-sm text-orange-700"
+                          ? "bg-card shadow-sm text-orange-300"
                           : "text-muted-foreground hover:text-foreground",
                       )}
                     >
@@ -223,9 +223,9 @@ export function BatchOptionsPanel() {
           icon={MousePointerClick}
           title="Manual Review"
           desc="Click-to-clean leftovers per asset"
-          accent="bg-violet-50 text-violet-600 border-violet-100"
+          accent="text-violet-400 border-violet-500/30 bg-violet-500/10"
         />
-        <div className="rounded-xl bg-violet-50/50 border border-violet-100 px-3">
+        <div className="rounded-md bg-violet-500/5 border border-violet-500/20 px-3">
           <OptionRow
             icon={MousePointerClick}
             title="Review after auto clean"
@@ -258,7 +258,7 @@ export function BatchOptionsPanel() {
                       className={cn(
                         "rounded-lg px-2 py-1.5 text-center transition-all cursor-pointer",
                         active
-                          ? "bg-card shadow-sm text-orange-700"
+                          ? "bg-card shadow-sm text-orange-300"
                           : "text-muted-foreground hover:text-foreground",
                       )}
                     >
@@ -281,7 +281,7 @@ export function BatchOptionsPanel() {
           icon={Cpu}
           title="Processing"
           desc="Resize, clean and scan behavior"
-          accent="bg-blue-50 text-blue-600 border-blue-100"
+          accent="text-blue-400 border-blue-500/30 bg-blue-500/10"
         />
         <div className="divide-y divide-border/60">
           <OptionRow
@@ -328,7 +328,7 @@ export function BatchOptionsPanel() {
           icon={ShieldCheck}
           title="Safety"
           desc="Preview and conservative guards"
-          accent="bg-emerald-50 text-emerald-600 border-emerald-100"
+          accent="text-emerald-400 border-emerald-500/30 bg-emerald-500/10"
         />
         <div className="divide-y divide-border/60">
           <OptionRow

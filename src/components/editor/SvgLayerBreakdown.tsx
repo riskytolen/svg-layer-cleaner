@@ -12,6 +12,7 @@ import { DocumentInfoPanel } from "./DocumentInfoPanel";
 import { EmptyState } from "./EmptyState";
 import { ResizeSettingsPanel } from "./ResizeSettingsPanel";
 import { CanvasControls } from "./CanvasControls";
+import { EditorStatusBar } from "./EditorStatusBar";
 import { useSvgLayerStore } from "@/store/svgLayerStore";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -132,7 +133,7 @@ export function SvgLayerBreakdown() {
 
   return (
     <div
-      className="h-screen flex flex-col bg-background overflow-hidden"
+      className="h-screen flex flex-col bg-canvas overflow-hidden"
       onDrop={handleDrop}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -140,55 +141,46 @@ export function SvgLayerBreakdown() {
       {/* Toolbar */}
       <Toolbar />
 
-      {/* Main Content */}
+      {/* Main Content —— dock kiri · canvas tengah · inspector kanan */}
       <div className="flex flex-1 overflow-hidden">
         {svgText ? (
           <>
-            {/* Left Sidebar - Layer Panel */}
-            <aside className="w-80 bg-card border-r border-border flex flex-col shrink-0">
-              <div className="px-3 py-2 border-b border-border">
-                <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Layers
-                </h2>
+            {/* Left dock — Layers + Document */}
+            <aside className="w-72 bg-[#1d1d21] border-r border-[#35353b] flex flex-col shrink-0">
+              <div className="panel-header">
+                Layers
               </div>
               <div className="flex-1 overflow-hidden">
                 <LayerPanel />
               </div>
-              <DocumentInfoPanel />
+              <div className="border-t border-[#35353b] overflow-hidden">
+                <DocumentInfoPanel />
+              </div>
             </aside>
 
-            {/* Center - SVG Preview */}
-            <main className="flex-1 overflow-hidden relative preview-viewport">
+            {/* Center — SVG artboard viewport */}
+            <main className="flex-1 overflow-hidden relative preview-viewport workspace-canvas">
               <SvgPreview />
               <CanvasControls />
             </main>
 
-            {/* Right Sidebar - Layer Detail + Color Group + Resize + Clean SVG */}
-            <aside className="w-80 bg-card border-l border-border flex flex-col shrink-0">
-              <div className="flex-1 overflow-hidden border-b border-border">
-                <div className="px-3 py-2 border-b border-border">
-                  <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Layer Details
-                  </h2>
-                </div>
+            {/* Right dock — inspector panels */}
+            <aside className="w-80 bg-[#1d1d21] border-l border-[#35353b] flex flex-col shrink-0 overflow-y-auto">
+              <div className="panel-header sticky top-0 z-10 bg-[#26262b]">
+                Properties
+              </div>
+              <div className="overflow-hidden border-b border-[#35353b]">
                 <LayerDetailPanel />
               </div>
-              <div className="flex-1 overflow-hidden border-b border-border">
-                <div className="px-3 py-2 border-b border-border">
-                  <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Color Selection
-                  </h2>
-                </div>
+              <div className="flex-none overflow-hidden border-b border-[#35353b]">
                 <ColorGroupPanel />
               </div>
-              <div className="flex-none overflow-hidden border-b border-border">
+              <div className="overflow-hidden border-b border-[#35353b]">
                 <div
                   id="resize-settings-panel-trigger"
-                  className="px-3 py-2 border-b border-border cursor-pointer"
+                  className="panel-header cursor-pointer"
                 >
-                  <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Canvas Size
-                  </h2>
+                  Canvas Size
                 </div>
                 <ResizeSettingsPanel />
               </div>
@@ -208,6 +200,9 @@ export function SvgLayerBreakdown() {
           </main>
         )}
       </div>
+
+      {/* Status strip */}
+      <EditorStatusBar />
 
       {/* Clean Summary Dialog */}
       <CleanSummaryDialog

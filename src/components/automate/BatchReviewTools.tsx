@@ -89,26 +89,26 @@ export function BatchReviewTools() {
   const propertyLabel: ReviewColorProperty = reviewColorProperty;
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 shadow-[0_1px_2px_rgba(16,24,40,0.05)] space-y-4 h-full max-h-[720px] overflow-auto">
+    <div className="rounded-lg border border-border bg-card p-3 shadow-[0_1px_2px_rgba(0,0,0,0.35)] space-y-3.5 h-full max-h-[720px] overflow-auto">
       <div className="flex items-center gap-2.5">
-        <span className="w-8 h-8 rounded-lg bg-violet-600 text-white flex items-center justify-center shrink-0">
-          <MousePointerClick className="w-4 h-4" strokeWidth={2} />
+        <span className="w-7 h-7 rounded-md bg-violet-600 text-white flex items-center justify-center shrink-0">
+          <MousePointerClick className="w-3.5 h-3.5" strokeWidth={2} />
         </span>
         <div>
-          <h3 className="text-sm font-bold tracking-tight leading-tight">Manual Cleanup</h3>
-          <p className="text-[11px] text-muted-foreground">Click a color, then delete</p>
+          <h3 className="text-[12.5px] font-bold tracking-tight leading-tight">Manual Cleanup</h3>
+          <p className="text-[10.5px] text-muted-foreground leading-tight">Click a color, then delete</p>
         </div>
       </div>
 
       {/* Selection info */}
-      <div className="rounded-xl bg-muted/60 border border-border/60 p-3">
+      <div className="rounded-md bg-background border border-border/70 p-2.5">
         {reviewSelectedLayerId ? (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                 Selected
               </span>
-              <span className="text-[11px] font-bold tabular-nums px-1.5 py-0.5 rounded-md bg-violet-100 text-violet-700">
+              <span className="text-[11px] font-bold tabular-nums px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-300">
                 {reviewSelectedLayerIds.length} object{reviewSelectedLayerIds.length > 1 ? "s" : ""}
               </span>
             </div>
@@ -129,7 +129,7 @@ export function BatchReviewTools() {
 
       {/* Feedback */}
       {reviewLastAction && (
-        <p className="text-[11px] font-medium px-2.5 py-2 rounded-lg bg-blue-50 border border-blue-100 text-blue-700">
+        <p className="text-[11px] font-medium px-2.5 py-2 rounded-md bg-blue-500/10 border border-blue-500/25 text-blue-300">
           {reviewLastAction}
         </p>
       )}
@@ -179,8 +179,8 @@ export function BatchReviewTools() {
             aria-pressed={isDeselecting}
             onClick={() => setReviewSelectionMode(isDeselecting ? "select" : "subtract")}
             className={cn(
-              "flex-1 rounded-xl text-xs font-semibold",
-              isDeselecting && "border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:text-violet-800",
+              "flex-1 rounded-md text-xs font-semibold",
+              isDeselecting && "border-violet-500/50 bg-violet-500/15 text-violet-300 hover:bg-violet-500/25 hover:text-violet-200",
             )}
             title="Toggle deselect mode. Clicking removes only that object from the selection."
           >
@@ -194,8 +194,8 @@ export function BatchReviewTools() {
             aria-pressed={isAreaDeselecting}
             onClick={() => setReviewSelectionMode(isAreaDeselecting ? "select" : "area-subtract")}
             className={cn(
-              "flex-1 rounded-xl text-xs font-semibold",
-              isAreaDeselecting && "border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:text-violet-800",
+              "flex-1 rounded-md text-xs font-semibold",
+              isAreaDeselecting && "border-violet-500/50 bg-violet-500/15 text-violet-300 hover:bg-violet-500/25 hover:text-violet-200",
             )}
             title="Drag a box over the canvas: every selected object it touches leaves the selection."
           >
@@ -239,8 +239,8 @@ export function BatchReviewTools() {
                 onClick={() => setReviewColorProperty(property)}
                 aria-pressed={active}
                 className={cn(
-                  "flex-1 rounded-xl text-xs font-semibold",
-                  active && "border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:text-violet-800",
+                  "flex-1 rounded-md text-xs font-semibold",
+                  active && "border-violet-500/50 bg-violet-500/15 text-violet-300 hover:bg-violet-500/25 hover:text-violet-200",
                 )}
                 title={active ? `Currently editing ${property}` : `Switch to editing ${property}`}
               >
@@ -274,8 +274,8 @@ export function BatchReviewTools() {
             aria-pressed={reviewPickColorMode}
             onClick={() => setReviewPickColorMode(!reviewPickColorMode)}
             className={cn(
-              "rounded-xl px-2 shrink-0",
-              reviewPickColorMode && "border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:text-violet-800",
+              "rounded-md px-2 shrink-0",
+              reviewPickColorMode && "border-violet-500/50 bg-violet-500/15 text-violet-300 hover:bg-violet-500/25 hover:text-violet-200",
             )}
             title="Pick a color from any object on the canvas. Your selection stays intact."
             aria-label="Pick color from canvas"
@@ -306,68 +306,68 @@ export function BatchReviewTools() {
           Delete
         </span>
         <div className="space-y-1.5">
-          <Button
-            variant="destructive"
-            size="sm"
-            disabled={!hasSelection}
-            onClick={deleteReviewSelection}
-            title="Delete only the objects still selected, keeping deselected objects"
-            className="w-full rounded-xl text-xs font-bold"
-          >
-            <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-            Delete selected
-          </Button>
-          <p className="text-[10px] text-muted-foreground">Delete all by color (ignores selection):</p>
-          <div className="grid grid-cols-3 gap-1.5">
             <Button
-              variant="outline"
+              variant="destructive"
               size="sm"
-              disabled={!canAct}
-              onClick={() => deleteReviewSameColor("fill")}
-              className="rounded-xl text-[11px] font-bold hover:text-red-600 hover:border-red-300 hover:bg-red-50"
-              title="Delete ALL with same fill, including objects you deselected"
+              disabled={!hasSelection}
+              onClick={deleteReviewSelection}
+              title="Delete only the objects still selected, keeping deselected objects"
+              className="w-full rounded-md text-xs font-bold"
             >
-              <Droplet className="w-3.5 h-3.5 mr-1" />
-              Fill
+              <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+              Delete selected
             </Button>
+            <p className="text-[10px] text-muted-foreground">Delete all by color (ignores selection):</p>
+            <div className="grid grid-cols-3 gap-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!canAct}
+                onClick={() => deleteReviewSameColor("fill")}
+                className="rounded-md text-[11px] font-bold border-[#3f3f47] hover:text-red-400 hover:border-red-500/40 hover:bg-red-500/10"
+                title="Delete ALL with same fill, including objects you deselected"
+              >
+                <Droplet className="w-3.5 h-3.5 mr-1" />
+                Fill
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!canAct}
+                onClick={() => deleteReviewSameColor("stroke")}
+                className="rounded-md text-[11px] font-bold border-[#3f3f47] hover:text-red-400 hover:border-red-500/40 hover:bg-red-500/10"
+                title="Delete ALL with same stroke, including objects you deselected"
+              >
+                Stroke
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!canAct}
+                onClick={() => deleteReviewSameColor("fill-and-stroke")}
+                className="rounded-md text-[11px] font-bold border-[#3f3f47] hover:text-red-400 hover:border-red-500/40 hover:bg-red-500/10"
+                title="Delete ALL with same fill and stroke, including objects you deselected"
+              >
+                Both
+              </Button>
+            </div>
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
-              disabled={!canAct}
-              onClick={() => deleteReviewSameColor("stroke")}
-              className="rounded-xl text-[11px] font-bold hover:text-red-600 hover:border-red-300 hover:bg-red-50"
-              title="Delete ALL with same stroke, including objects you deselected"
+              disabled={!canUndo}
+              onClick={undoReviewEdit}
+              className="w-full rounded-md text-xs font-semibold text-muted-foreground hover:bg-white/5 hover:text-foreground"
             >
-              Stroke
+              <Undo2 className="w-3.5 h-3.5 mr-1.5" />
+              Undo manual edit{item ? ` (${item.history.length})` : ""}
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!canAct}
-              onClick={() => deleteReviewSameColor("fill-and-stroke")}
-              className="rounded-xl text-[11px] font-bold hover:text-red-600 hover:border-red-300 hover:bg-red-50"
-              title="Delete ALL with same fill and stroke, including objects you deselected"
-            >
-              Both
-            </Button>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={!canUndo}
-            onClick={undoReviewEdit}
-            className="w-full rounded-xl text-xs font-semibold text-muted-foreground"
-          >
-            <Undo2 className="w-3.5 h-3.5 mr-1.5" />
-            Undo manual edit{item ? ` (${item.history.length})` : ""}
-          </Button>
         </div>
       </div>
 
       {/* Progress */}
       <div className={cn("pt-3 border-t border-border space-y-1.5")}>
         {isRejected && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-800">
+          <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-amber-400">
             Rejected asset. It will be excluded from export.
           </div>
         )}
@@ -375,7 +375,7 @@ export function BatchReviewTools() {
           size="sm"
           disabled={!item || isRejected}
           onClick={markActiveReviewed}
-          className="w-full h-9 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[13px]"
+          className="w-full h-9 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[13px]"
         >
           <CheckCircle2 className="w-4 h-4 mr-1.5" />
           Mark reviewed & next
@@ -386,7 +386,7 @@ export function BatchReviewTools() {
             size="sm"
             disabled={!item}
             onClick={restoreActiveSkipped}
-            className="w-full rounded-xl text-xs font-bold border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+            className="w-full rounded-md text-xs font-bold border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300"
           >
             <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
             Restore asset
@@ -398,7 +398,7 @@ export function BatchReviewTools() {
             disabled={!item}
             onClick={markActiveSkipped}
             title="Reject this asset so it will not be exported"
-            className="w-full rounded-xl text-xs font-bold border-red-200 text-red-600 hover:text-red-700 hover:bg-red-50"
+            className="w-full rounded-md text-xs font-bold border-red-500/40 text-red-400 hover:text-red-300 hover:bg-red-500/10"
           >
             <SkipForward className="w-3.5 h-3.5 mr-1.5" />
             Reject asset - exclude export

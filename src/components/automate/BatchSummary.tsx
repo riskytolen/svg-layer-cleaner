@@ -19,55 +19,56 @@ export function BatchSummary() {
   if (summary.totalFiles === 0) return null;
 
   const stats = [
-    { label: "Total Files", value: summary.totalFiles, icon: Files, tile: "bg-slate-100 text-slate-600" },
-    { label: "Success", value: summary.successFiles, icon: FileCheck, tile: "bg-emerald-50 text-emerald-600" },
-    { label: "Failed", value: summary.failedFiles, icon: FileX, tile: "bg-red-50 text-red-600" },
-    { label: "Skipped", value: summary.skippedFiles, icon: SkipForward, tile: "bg-amber-50 text-amber-600" },
+    { label: "Total Files", value: summary.totalFiles, icon: Files, tile: "bg-zinc-500/10 text-zinc-400" },
+    { label: "Success", value: summary.successFiles, icon: FileCheck, tile: "bg-emerald-500/10 text-emerald-400" },
+    { label: "Failed", value: summary.failedFiles, icon: FileX, tile: "bg-red-500/10 text-red-400" },
+    { label: "Skipped", value: summary.skippedFiles, icon: SkipForward, tile: "bg-amber-500/10 text-amber-400" },
     {
       label: "BG Removed",
       value: summary.totalBgRemoved ?? summary.totalDeletedPaths,
       icon: Eraser,
-      tile: "bg-orange-50 text-orange-600",
+      tile: "bg-orange-500/10 text-orange-400",
     },
     {
       label: "PX Cleaned",
       value: summary.totalResidualPixels ?? 0,
       icon: Sparkles,
-      tile: "bg-cyan-50 text-cyan-600",
+      tile: "bg-cyan-500/10 text-cyan-400",
     },
   ];
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
+    <section className="rounded-lg border border-border bg-card p-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.35)]">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="text-sm font-bold tracking-tight">Batch Results</h2>
-          <p className="text-xs text-muted-foreground">Live summary of the current run</p>
+          <h2 className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Batch Results</h2>
         </div>
         {outputHandle && (
-          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted text-xs text-muted-foreground font-medium max-w-[240px]">
-            <FolderOutput className="w-3 h-3 shrink-0" />
+          <span className="flex items-center gap-1.5 px-2 py-1 rounded bg-background border border-border text-[11px] text-muted-foreground font-mono max-w-[280px]">
+            <FolderOutput className="w-3 h-3 shrink-0 text-emerald-400" />
             <span className="truncate">{outputHandle.name}</span>
           </span>
         )}
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 mt-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2 mt-3">
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
             <div
               key={stat.label}
-              className="rounded-xl border border-border/70 bg-background p-3.5 hover:shadow-sm transition-shadow"
+              className="rounded-md border border-border/70 bg-background px-3 py-2.5 flex items-center gap-3 hover:border-[#46464f] transition-colors"
             >
-              <span className={cn("w-9 h-9 rounded-xl flex items-center justify-center", stat.tile)}>
-                <Icon className="w-4.5 h-4.5" strokeWidth={2} />
+              <span className={cn("w-8 h-8 rounded-md flex items-center justify-center shrink-0", stat.tile)}>
+                <Icon className="w-4 h-4" strokeWidth={2} />
               </span>
-              <div className="mt-2.5 text-2xl font-bold tracking-tight tabular-nums leading-none">
-                {stat.value.toLocaleString()}
-              </div>
-              <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                {stat.label}
+              <div className="min-w-0">
+                <div className="text-lg font-bold tracking-tight tabular-nums leading-none">
+                  {stat.value.toLocaleString()}
+                </div>
+                <div className="mt-1 text-[9.5px] font-bold uppercase tracking-[0.12em] text-muted-foreground truncate">
+                  {stat.label}
+                </div>
               </div>
             </div>
           );

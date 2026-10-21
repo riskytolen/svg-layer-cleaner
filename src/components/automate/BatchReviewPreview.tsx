@@ -450,10 +450,10 @@ export function BatchReviewPreview() {
   ] as const;
 
   return (
-    <div className="rounded-2xl border border-border bg-card shadow-[0_1px_2px_rgba(16,24,40,0.05)] overflow-hidden flex flex-col h-full max-h-[720px]">
+    <div className="rounded-lg border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.35)] overflow-hidden flex flex-col h-full max-h-[720px]">
       {/* Preview toolbar */}
-      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border flex-wrap">
-        <span className="text-[13px] font-bold truncate" title={item?.fileName || ""}>
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-border flex-wrap">
+        <span className="text-[12.5px] font-bold truncate" title={item?.fileName || ""}>
           {item?.fileName || "No asset selected"}
         </span>
         {item && (
@@ -463,16 +463,16 @@ export function BatchReviewPreview() {
           </span>
         )}
         <div className="ml-auto flex items-center gap-1">
-          <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5 mr-1">
+          <div className="flex items-center gap-0.5 bg-[#191a1e] rounded-md p-0.5 mr-1">
             {canvasButtons.map((b) => (
               <button
                 key={b.value}
                 title={`${b.label} canvas`}
                 onClick={() => updateOptions({ reviewCanvas: b.value })}
                 className={cn(
-                  "p-1.5 rounded-md transition-all cursor-pointer",
+                  "p-1.5 rounded-[5px] transition-all cursor-pointer",
                   reviewCanvas === b.value
-                    ? "bg-card shadow-sm text-orange-600"
+                    ? "bg-[#33333a] text-orange-300 shadow-[inset_0_0_0_1px_#45454e]"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >

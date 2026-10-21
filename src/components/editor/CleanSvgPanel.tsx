@@ -160,7 +160,7 @@ export function CleanSvgPanel() {
           </Button>
         </div>
 
-        <div className="bg-amber-50 border border-amber-200 rounded-md p-2">
+        <div className="bg-amber-500/10 border border-amber-500/25 rounded-md p-2">
           <p className="text-[10px] text-amber-700 leading-relaxed flex items-start gap-1">
             <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
             Be careful when removing elements without fill/stroke because some SVG files use inherited styles.

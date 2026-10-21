@@ -25,13 +25,17 @@ export function ExportFormatSelector() {
   };
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] h-full">
-      <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-        Export Format
+    <div className="rounded-lg border border-border bg-card p-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.35)] h-full">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+          Export Format
+        </span>
+        <span className="text-[10px] text-muted-foreground tabular-nums">
+          {exportFormats.length} selected
+        </span>
       </div>
-      <p className="text-xs text-muted-foreground mt-1">Choose output asset types</p>
 
-      <div className="grid grid-cols-2 gap-2.5 mt-4">
+      <div className="grid grid-cols-2 gap-1.5 mt-3">
         {FORMATS.map((fmt) => {
           const active = exportFormats.includes(fmt.value);
           const Icon = fmt.icon;
@@ -40,40 +44,44 @@ export function ExportFormatSelector() {
               key={fmt.value}
               onClick={() => toggle(fmt.value)}
               className={cn(
-                "relative rounded-xl border p-3 text-left transition-all cursor-pointer",
+                "relative rounded-md border px-2.5 py-2 text-left transition-all cursor-pointer",
                 active
-                  ? "border-orange-500 bg-orange-50/60 shadow-[0_2px_8px_rgba(211,84,0,0.12)]"
-                  : "border-border bg-background hover:border-slate-300 hover:shadow-sm",
+                  ? "border-orange-500/60 bg-orange-500/10 shadow-[inset_0_0_0_1px_rgba(232,106,31,0.25)]"
+                  : "border-border bg-background hover:border-[#4a4a54]",
               )}
             >
-              {fmt.recommended && (
-                <span className="absolute -top-2 left-2.5 px-1.5 py-px rounded-full bg-orange-600 text-white text-[9px] font-bold uppercase tracking-wider">
-                  Popular
-                </span>
-              )}
-              <span className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
                 <span
                   className={cn(
-                    "w-8 h-8 rounded-lg flex items-center justify-center",
+                    "w-7 h-7 rounded-md flex items-center justify-center shrink-0",
                     active ? "bg-orange-600 text-white" : "bg-muted text-muted-foreground",
                   )}
                 >
-                  <Icon className="w-4 h-4" strokeWidth={2} />
+                  <Icon className="w-3.5 h-3.5" strokeWidth={2} />
                 </span>
-                {active && <CheckCircle2 className="w-4 h-4 text-orange-600" />}
+                <span className="min-w-0">
+                  <span className="flex items-center gap-1.5">
+                    <span className={cn("block text-[12px] font-bold leading-none", active && "text-foreground")}>{fmt.label}</span>
+                    {fmt.recommended && (
+                      <span className="px-1 py-px rounded-sm bg-orange-600/90 text-white text-[8px] font-bold uppercase tracking-wide leading-none py-[2px]">
+                        Pop
+                      </span>
+                    )}
+                    {active && <CheckCircle2 className="w-3 h-3 text-orange-400 shrink-0" />}
+                  </span>
+                  <span className="block mt-1 text-[10px] text-muted-foreground leading-none whitespace-nowrap">{fmt.hint}</span>
+                </span>
               </span>
-              <span className="block mt-2 text-[13px] font-bold leading-none">{fmt.label}</span>
-              <span className="block mt-1 text-[11px] text-muted-foreground leading-none">{fmt.hint}</span>
             </button>
           );
         })}
       </div>
 
-      <p className="mt-3 text-[11px] text-muted-foreground">
-        {exportFormats.length === 0
-          ? "Select at least one format to continue."
-          : `${exportFormats.length} format${exportFormats.length > 1 ? "s" : ""} selected`}
-      </p>
+      {exportFormats.length === 0 && (
+        <p className="mt-2.5 text-[10.5px] text-amber-400">
+          Select at least one format to continue.
+        </p>
+      )}
     </div>
   );
 }

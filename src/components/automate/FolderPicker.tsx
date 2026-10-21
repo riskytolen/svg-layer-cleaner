@@ -15,14 +15,14 @@ const META = {
     label: "Input Folder",
     description: "Source folder containing SVG files",
     icon: FolderInput,
-    iconBox: "bg-blue-50 text-blue-600 border-blue-100",
+    iconBox: "text-blue-400 border-blue-500/30 bg-blue-500/10",
   },
   output: {
     step: "Step 2",
     label: "Output Folder",
     description: "Destination for cleaned assets",
     icon: FolderOutput,
-    iconBox: "bg-emerald-50 text-emerald-600 border-emerald-100",
+    iconBox: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10",
   },
 } as const;
 
@@ -53,43 +53,41 @@ export function FolderPicker({ type }: FolderPickerProps) {
   };
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <span className={cn("w-10 h-10 rounded-xl border flex items-center justify-center shrink-0", meta.iconBox)}>
-            <Icon className="w-5 h-5" strokeWidth={2} />
-          </span>
-          <div>
-            <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-              {meta.step}
-            </div>
-            <div className="text-sm font-semibold tracking-tight">{meta.label}</div>
-            <div className="text-xs text-muted-foreground">{meta.description}</div>
+    <div className="rounded-lg border border-border bg-card p-3 shadow-[0_1px_2px_rgba(0,0,0,0.35)]">
+      <div className="flex items-center gap-3">
+        <span className={cn("w-8 h-8 rounded-md border flex items-center justify-center shrink-0 bg-background", meta.iconBox)}>
+          <Icon className="w-4 h-4" strokeWidth={2} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{meta.step}</span>
+            <span className="text-[13px] font-bold tracking-tight">{meta.label}</span>
+            {handle ? (
+              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/25 text-[10px] font-semibold text-emerald-400 shrink-0">
+                <CheckCircle2 className="w-3 h-3" />
+                Selected
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/25 text-[10px] font-semibold text-amber-400 shrink-0">
+                <AlertCircle className="w-3 h-3" />
+                Required
+              </span>
+            )}
           </div>
+          <div className="text-[11px] text-muted-foreground truncate">{meta.description}</div>
         </div>
-        {handle ? (
-          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[11px] font-semibold text-emerald-700 shrink-0">
-            <CheckCircle2 className="w-3 h-3" />
-            Selected
-          </span>
-        ) : (
-          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-[11px] font-semibold text-amber-700 shrink-0">
-            <AlertCircle className="w-3 h-3" />
-            Required
-          </span>
-        )}
       </div>
 
-      <div className="mt-4 flex items-center gap-3 rounded-xl bg-muted/60 border border-border/60 pl-3.5 pr-2 py-2">
-        <FolderOpen className="w-4 h-4 text-muted-foreground shrink-0" />
+      <div className="mt-2.5 flex items-center gap-2 rounded-md bg-background border border-border/70 pl-2.5 pr-1.5 py-1.5">
+        <FolderOpen className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
         {handle ? (
-          <span className="text-[13px] font-medium truncate" title={handle.name}>
+          <span className="font-mono text-xs truncate text-foreground/85" title={handle.name}>
             {handle.name}
           </span>
         ) : (
-          <span className="text-[13px] text-muted-foreground">No folder selected yet</span>
+          <span className="text-xs text-muted-foreground">No folder selected yet</span>
         )}
-        <Button variant="outline" size="sm" onClick={pickFolder} className="ml-auto shrink-0 rounded-lg font-semibold">
+        <Button variant="outline" size="sm" onClick={pickFolder} className="ml-auto shrink-0 rounded-md font-semibold h-6.5 px-2.5 text-xs">
           Choose
         </Button>
       </div>

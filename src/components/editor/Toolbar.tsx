@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import {
-  Layers,
   Undo2,
   Redo2,
   Trash2,
@@ -12,12 +11,18 @@ import {
   Zap,
   Maximize,
   Eraser,
+  Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils/cn";
 import { useSvgLayerStore } from "@/store/svgLayerStore";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
 import { ExportDialog } from "./ExportDialog";
+
+function ToolDivider() {
+  return <div className="w-px h-5 bg-[#3a3a41] mx-1.5 shrink-0" />;
+}
 
 export function Toolbar() {
   const svgText = useSvgLayerStore((s) => s.svgText);
@@ -76,175 +81,177 @@ export function Toolbar() {
 
   return (
     <>
-      <div className="h-10 bg-card border-b border-border flex items-center px-4 shrink-0">
-        <div className="flex items-center gap-2">
-          <Layers className="w-5 h-5 text-primary" />
-          <h1 className="text-sm font-semibold text-foreground">
-            SVG Layer Cleaner
-          </h1>
+      <div className="h-11 bg-[#1d1d21] border-b border-[#35353b] flex items-center px-2.5 shrink-0 gap-1.5 overflow-x-auto">
+        {/* Document identity */}
+        <div className="flex items-center gap-2 min-w-0 max-w-[240px]">
+          <span className="text-xs font-semibold text-foreground/80 truncate" title={documentInfo?.fileName || ""}>
+            {documentInfo ? documentInfo.fileName : "No document"}
+          </span>
+          {selectedLayerIds.length > 0 && (
+            <Badge
+              variant="secondary"
+              className="shrink-0 bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 text-[10px] px-1.5 py-0 h-[18px]"
+            >
+              {selectedLayerIds.length} sel
+            </Badge>
+          )}
         </div>
 
-        <div className="flex items-center gap-1 ml-auto">
-          {svgText && (
-            <>
-              {/* Undo/Redo */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                disabled={!canUndo}
-                onClick={undo}
-                title="Undo (Ctrl+Z)"
-              >
-                <Undo2 className="w-3.5 h-3.5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                disabled={!canRedo}
-                onClick={redo}
-                title="Redo (Ctrl+Shift+Z)"
-              >
-                <Redo2 className="w-3.5 h-3.5" />
-              </Button>
+        <ToolDivider />
 
-              <div className="w-px h-5 bg-border mx-1" />
+        {/* History */}
+        <div className="flex items-center gap-0.5">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-white/5"
+            disabled={!canUndo}
+            onClick={undo}
+            title="Undo (Ctrl+Z)"
+          >
+            <Undo2 className="w-3.5 h-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-white/5"
+            disabled={!canRedo}
+            onClick={redo}
+            title="Redo (Ctrl+Shift+Z)"
+          >
+            <Redo2 className="w-3.5 h-3.5" />
+          </Button>
+        </div>
 
-              {/* Select Same Color */}
-              <div className="relative" ref={colorMenuRef}>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!canSelectColor}
-                  onClick={() => setShowColorMenu(!showColorMenu)}
-                  className="h-7"
-                  title="Select Same Color"
-                >
-                  <Pipette className="w-3.5 h-3.5 mr-1" />
-                  Select Color
-                </Button>
-                {showColorMenu && canSelectColor && (
-                  <div className="absolute top-full right-0 mt-1 bg-card border border-border rounded-md shadow-lg z-50 py-1 min-w-[180px]">
-                    <button
-                      className="w-full px-3 py-1.5 text-xs text-left hover:bg-muted flex items-center gap-2"
-                      onClick={() => {
-                        selectSameFillColor();
-                        setShowColorMenu(false);
-                      }}
-                    >
-                      <span className="w-3 h-3 rounded border border-border" style={{ backgroundColor: "#ccc" }} />
-                      Select Same Fill
-                    </button>
-                    <button
-                      className="w-full px-3 py-1.5 text-xs text-left hover:bg-muted flex items-center gap-2"
-                      onClick={() => {
-                        selectSameStrokeColor();
-                        setShowColorMenu(false);
-                      }}
-                    >
-                      <span className="w-3 h-3 rounded border-2 border-current" />
-                      Select Same Stroke
-                    </button>
-                    <button
-                      className="w-full px-3 py-1.5 text-xs text-left hover:bg-muted flex items-center gap-2"
-                      onClick={() => {
-                        selectSameFillAndStrokeColor();
-                        setShowColorMenu(false);
-                      }}
-                    >
-                      <Pipette className="w-3 h-3" />
-                      Select Same Fill + Stroke
-                    </button>
-                  </div>
-                )}
-              </div>
+        <ToolDivider />
 
-              <div className="w-px h-5 bg-border mx-1" />
-
-              {/* Clean SVG */}
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!svgText}
-                onClick={cleanSvg}
-                className="h-7"
-                title="Clean SVG with default options"
-              >
-                <Zap className="w-3.5 h-3.5 mr-1" />
-                Quick Clean
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!svgText}
-                onClick={() => removeWhiteBackground("balanced")}
-                className="h-7"
-                title="Remove white background (balanced mode)"
-              >
-                <Eraser className="w-3.5 h-3.5 mr-1" />
-                Remove BG
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!svgText}
+        {/* Select same color */}
+        <div className="relative" ref={colorMenuRef}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!canSelectColor}
+            onClick={() => setShowColorMenu(!showColorMenu)}
+            className="h-7 border-[#3f3f47] bg-transparent hover:bg-white/5 hover:text-foreground text-[12px] font-medium px-2.5"
+            title="Select all objects sharing a color"
+          >
+            <Pipette className="w-3.5 h-3.5 mr-1.5 text-cyan-400" />
+            Select Color
+          </Button>
+          {showColorMenu && canSelectColor && (
+            <div className="absolute top-full left-0 mt-1 bg-[#2a2a2f] border border-[#43434c] rounded-lg shadow-2xl z-50 py-1 min-w-[190px]">
+              <button
+                className="w-full px-3 py-1.5 text-xs text-left text-foreground/90 hover:bg-white/5 flex items-center gap-2.5"
                 onClick={() => {
-                  const panel = document.getElementById("clean-svg-panel-trigger");
-                  if (panel) panel.click();
+                  selectSameFillColor();
+                  setShowColorMenu(false);
                 }}
-                className="h-7"
-                title="Open Clean SVG options"
               >
-                <Sparkles className="w-3.5 h-3.5 mr-1" />
-                Clean SVG
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!svgText}
+                <span className="w-3 h-3 rounded-sm bg-cyan-400/80 border border-cyan-300/50 shrink-0" />
+                Select Same Fill
+              </button>
+              <button
+                className="w-full px-3 py-1.5 text-xs text-left text-foreground/90 hover:bg-white/5 flex items-center gap-2.5"
                 onClick={() => {
-                  const panel = document.getElementById("resize-settings-panel-trigger");
-                  if (panel) panel.click();
+                  selectSameStrokeColor();
+                  setShowColorMenu(false);
                 }}
-                className="h-7"
-                title="Open Resize Settings"
               >
-                <Maximize className="w-3.5 h-3.5 mr-1" />
-                Resize
-              </Button>
-
-              <div className="w-px h-5 bg-border mx-1" />
-
-              {/* Delete selected */}
-              <Button
-                variant="destructive"
-                size="sm"
-                disabled={!canDelete}
-                onClick={handleDeleteClick}
-                className="h-7"
+                <span className="w-3 h-3 rounded-sm border-2 border-cyan-400/80 shrink-0" />
+                Select Same Stroke
+              </button>
+              <button
+                className="w-full px-3 py-1.5 text-xs text-left text-foreground/90 hover:bg-white/5 flex items-center gap-2.5"
+                onClick={() => {
+                  selectSameFillAndStrokeColor();
+                  setShowColorMenu(false);
+                }}
               >
-                <Trash2 className="w-3.5 h-3.5 mr-1" />
-                Delete
-                {canDelete && (
-                  <Badge variant="secondary" className="ml-1 text-[10px] px-1 py-0 h-4 bg-destructive/20">
-                    {selectedLayerIds.length}
-                  </Badge>
-                )}
-              </Button>
-            </>
+                <Pipette className="w-3 h-3 text-cyan-400" />
+                Select Same Fill + Stroke
+              </button>
+            </div>
           )}
+        </div>
 
-          <div className="w-px h-5 bg-border mx-1" />
+        <ToolDivider />
 
-          {/* File info */}
-          {documentInfo && (
-            <span className="text-xs text-muted-foreground mr-2 max-w-[200px] truncate">
-              {documentInfo.fileName}
-            </span>
+        {/* Cleaning tools */}
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!svgText}
+            onClick={cleanSvg}
+            className="h-7 border-[#3f3f47] bg-transparent hover:bg-white/5 hover:text-foreground text-[12px] font-medium px-2.5"
+            title="Clean SVG with default options"
+          >
+            <Zap className="w-3.5 h-3.5 mr-1.5 text-orange-400" />
+            Quick Clean
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!svgText}
+            onClick={() => removeWhiteBackground("balanced")}
+            className="h-7 border-[#3f3f47] bg-transparent hover:bg-white/5 hover:text-foreground text-[12px] font-medium px-2.5"
+            title="Remove white background (balanced mode)"
+          >
+            <Eraser className="w-3.5 h-3.5 mr-1.5 text-orange-400" />
+            Remove BG
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-white/5"
+            disabled={!svgText}
+            onClick={() => {
+              const panel = document.getElementById("clean-svg-panel-trigger");
+              if (panel) panel.click();
+            }}
+            title="Open Clean SVG options"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-white/5"
+            disabled={!svgText}
+            onClick={() => {
+              const panel = document.getElementById("resize-settings-panel-trigger");
+              if (panel) panel.click();
+            }}
+            title="Open Resize Settings"
+          >
+            <Maximize className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+
+        <ToolDivider />
+
+        {/* Delete selection */}
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={!canDelete}
+          onClick={handleDeleteClick}
+          className={cn(
+            "h-7 text-[12px] font-semibold px-2.5",
+            canDelete
+              ? "border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300"
+              : "border-[#3f3f47] bg-transparent text-muted-foreground",
           )}
+          title="Delete selected objects (Del)"
+        >
+          <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+          Delete
+          {canDelete && (
+            <span className="ml-1 text-[10px] font-bold tabular-nums">{selectedLayerIds.length}</span>
+          )}
+        </Button>
 
+        <div className="ml-auto flex items-center gap-2">
           {/* Upload */}
           <input
             type="file"
@@ -256,24 +263,25 @@ export function Toolbar() {
             onChange={handleFileChange}
           />
           <Button
-            variant="default"
+            variant="outline"
             size="sm"
-            className="h-7"
+            className="h-7 border-[#3f3f47] bg-transparent hover:bg-white/5 hover:text-foreground text-[12px] font-semibold px-2.5"
             onClick={() => (window as any).__svgFileInput?.click()}
+            title="Open an SVG file"
           >
-            <Layers className="w-3.5 h-3.5 mr-1" />
+            <Upload className="w-3.5 h-3.5 mr-1.5" />
             Upload SVG
           </Button>
 
           {/* Export */}
           <Button
-            variant="default"
             size="sm"
-            className="h-7"
+            className="h-7 bg-orange-600 hover:bg-orange-500 text-white text-[12px] font-bold px-3 shadow-[0_1px_4px_rgba(232,106,31,0.35)]"
             disabled={!svgText || isExporting}
             onClick={() => setShowExportDialog(true)}
+            title="Export the cleaned SVG"
           >
-            <Download className="w-3.5 h-3.5 mr-1" />
+            <Download className="w-3.5 h-3.5 mr-1.5" />
             Export
           </Button>
         </div>
