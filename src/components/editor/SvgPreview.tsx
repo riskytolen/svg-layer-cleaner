@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useCallback, useState } from "react";
 import { useSvgLayerStore } from "@/store/svgLayerStore";
+import { HtmlContent } from "@/components/shared/HtmlContent";
 
 const SVG_CANVAS_SIZE = 2500;
 
@@ -181,7 +182,8 @@ export function SvgPreview() {
         }}
       >
         {/* SVG artboard at actual 2500x2500 size */}
-        <div
+        <HtmlContent
+          html={svgText}
           className="checkerboard"
           style={{
             width: SVG_CANVAS_SIZE,
@@ -189,7 +191,6 @@ export function SvgPreview() {
             boxShadow:
               "0 0 0 1px rgba(60,60,70,0.9), 0 4px 24px rgba(0,0,0,0.55), 0 0 0 6px rgba(255,255,255,0.02)",
           }}
-          dangerouslySetInnerHTML={{ __html: svgText }}
         />
       </div>
     </div>

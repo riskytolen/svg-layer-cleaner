@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useCallback } from "react";
 import { useBatchAutomationStore } from "@/store/batchAutomationStore";
+import { HtmlContent } from "@/components/shared/HtmlContent";
 import { ZoomIn, ZoomOut, Maximize, Moon, Grid3X3, Sun } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
@@ -538,7 +539,8 @@ export function BatchReviewPreview() {
               willChange: "transform",
             }}
           >
-            <div
+            <HtmlContent
+              html={svgText}
               style={{
                 width: SVG_CANVAS_SIZE,
                 height: SVG_CANVAS_SIZE,
@@ -546,7 +548,6 @@ export function BatchReviewPreview() {
                 boxShadow: "0 2px 24px rgba(0,0,0,0.45)",
                 outline: "1px solid rgba(255,255,255,0.15)",
               }}
-              dangerouslySetInnerHTML={{ __html: svgText }}
             />
           </div>
         ) : (
